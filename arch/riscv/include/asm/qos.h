@@ -22,6 +22,8 @@ static void __qos_sched_in(struct task_struct *task)
 	thread_sqoscfg = READ_ONCE(task->thread.sqoscfg);
 
 	if (thread_sqoscfg != *cpu_sqoscfg_ptr) {
+		trace_printk("DEBUG %s(): next task (%d) has thread.sqoscfg=0x%x, current cpu has sqoscfg=0x%x",
+			__func__,  task->pid, thread_sqoscfg, *cpu_sqoscfg_ptr);
 		*cpu_sqoscfg_ptr = thread_sqoscfg;
 		csr_write(CSR_SQOSCFG, thread_sqoscfg);
 	}
