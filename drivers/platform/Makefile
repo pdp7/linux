@@ -13,3 +13,4 @@ obj-$(CONFIG_CHROME_PLATFORMS)	+= chrome/
 obj-$(CONFIG_SURFACE_PLATFORMS)	+= surface/
 obj-$(CONFIG_ARM_CPU_RESCTRL)	+= mpam/
 obj-y                           += qoscfg/
+obj-y                           += cbqri/
