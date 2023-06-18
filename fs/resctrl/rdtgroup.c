@@ -356,6 +356,7 @@ static int cpus_mon_write(struct rdtgroup *rdtgrp, cpumask_var_t newmask,
 	struct rdtgroup *prgrp = rdtgrp->mon.parent, *crgrp;
 	struct list_head *head;
 
+	pr_err("DEBUG %s()", __func__);
 	/* Check whether cpus belong to parent ctrl group */
 	cpumask_andnot(tmpmask, newmask, &prgrp->cpu_mask);
 	if (!cpumask_empty(tmpmask)) {
@@ -914,6 +915,7 @@ int proc_resctrl_show(struct seq_file *s, struct pid_namespace *ns,
 	struct rdtgroup *rdtg;
 	int ret = 0;
 
+	pr_err("DEBUG %s()", __func__);
 	mutex_lock(&rdtgroup_mutex);
 
 	/* Return empty if resctrl has not been mounted. */
@@ -1392,6 +1394,7 @@ static ssize_t rdtgroup_mode_write(struct kernfs_open_file *of,
 	enum rdtgrp_mode mode;
 	int ret = 0;
 
+	pr_err("DEBUG %s()", __func__);
 	/* Valid input requires a trailing newline */
 	if (nbytes == 0 || buf[nbytes - 1] != '\n')
 		return -EINVAL;
@@ -1570,6 +1573,7 @@ out:
 
 static void mondata_config_read(struct resctrl_mon_config_info *mon_info)
 {
+	pr_err("DEBUG %s()", __func__);
 	smp_call_function_any(&mon_info->d->cpu_mask,
 			      resctrl_arch_mon_event_config_read, mon_info, 1);
 }
@@ -1580,6 +1584,7 @@ static int mbm_config_show(struct seq_file *s, struct rdt_resource *r, u32 evtid
 	struct rdt_domain *dom;
 	bool sep = false;
 
+	pr_err("DEBUG %s()", __func__);
 	cpus_read_lock();
 	mutex_lock(&rdtgroup_mutex);
 
@@ -1609,6 +1614,7 @@ static int mbm_total_bytes_config_show(struct kernfs_open_file *of,
 {
 	struct rdt_resource *r = of->kn->parent->priv;
 
+	pr_err("DEBUG %s()", __func__);
 	mbm_config_show(seq, r, QOS_L3_MBM_TOTAL_EVENT_ID);
 
 	return 0;
@@ -1619,6 +1625,7 @@ static int mbm_local_bytes_config_show(struct kernfs_open_file *of,
 {
 	struct rdt_resource *r = of->kn->parent->priv;
 
+	pr_err("DEBUG %s()", __func__);
 	mbm_config_show(seq, r, QOS_L3_MBM_LOCAL_EVENT_ID);
 
 	return 0;
@@ -1629,6 +1636,7 @@ static int mbm_config_write_domain(struct rdt_resource *r,
 {
 	struct resctrl_mon_config_info mon_info = {0};
 
+	pr_err("DEBUG %s()", __func__);
 	/* mon_config cannot be more than the supported set of events */
 	if (val > MAX_EVT_CONFIG_BITS) {
 		rdt_last_cmd_puts("Invalid event configuration\n");
@@ -1683,6 +1691,7 @@ static int mon_config_write(struct rdt_resource *r, char *tok, u32 evtid)
 	struct rdt_domain *d;
 	int ret = 0;
 
+	pr_err("DEBUG %s()", __func__);
 	/* Walking r->domains, ensure it can't race with cpuhp */
 	lockdep_assert_cpus_held();
 
@@ -1723,6 +1732,7 @@ static ssize_t mbm_total_bytes_config_write(struct kernfs_open_file *of,
 	struct rdt_resource *r = of->kn->parent->priv;
 	int ret;
 
+	pr_err("DEBUG %s()", __func__);
 	/* Valid input requires a trailing newline */
 	if (nbytes == 0 || buf[nbytes - 1] != '\n')
 		return -EINVAL;
@@ -1749,6 +1759,7 @@ static ssize_t mbm_local_bytes_config_write(struct kernfs_open_file *of,
 	struct rdt_resource *r = of->kn->parent->priv;
 	int ret;
 
+	pr_err("DEBUG %s()", __func__);
 	/* Valid input requires a trailing newline */
 	if (nbytes == 0 || buf[nbytes - 1] != '\n')
 		return -EINVAL;
@@ -1772,6 +1783,7 @@ static struct rdtgroup *find_rdtgroup(u32 closid, u32 rmid)
 {
 	struct rdtgroup *prgrp, *crgrp;
 
+	pr_err("DEBUG %s()", __func__);
 	lockdep_assert_held(&rdtgroup_mutex);
 
 	list_for_each_entry(prgrp, &rdt_all_groups, rdtgroup_list) {
@@ -1797,6 +1809,7 @@ int resctrl_rdtgroup_show(struct seq_file *seq, u32 closid, u32 rmid)
 	struct rdtgroup *rdtgrp;
 	int err = -ENOENT;
 
+	pr_err("DEBUG %s()", __func__);
 	mutex_lock(&rdtgroup_mutex);
 	rdtgrp = find_rdtgroup(closid, rmid);
 	if (rdtgrp) {
@@ -1820,6 +1833,7 @@ int resctrl_id_decode(u64 id, u32 *closid, u32 *rmid)
 
 	__resctrl_id_decode(id, closid, rmid);
 
+	pr_err("DEBUG %s()", __func__);
 	/* Check this closid/rmid is allocated */
 	mutex_lock(&rdtgroup_mutex);
 	if (!find_rdtgroup(*closid, *rmid))
@@ -1836,6 +1850,7 @@ static int rdtgroup_id_show(struct kernfs_open_file *of,
 	int ret = 0;
 	u64 id;
 
+	pr_err("DEBUG %s()", __func__);
 	if (!static_branch_unlikely(&resctrl_abi_playground))
 		return -EOPNOTSUPP;
 
@@ -2084,6 +2099,7 @@ void mbm_config_rftype_init(const char *config)
 {
 	struct rftype *rft;
 
+	pr_err("DEBUG %s()", __func__);
 	rft = rdtgroup_get_rftype_by_name(config);
 	if (rft)
 		rft->fflags = RF_MON_INFO | RFTYPE_RES_CACHE;
@@ -2959,6 +2975,7 @@ static int mon_addfile(struct kernfs_node *parent_kn, const char *name,
 	struct kernfs_node *kn;
 	int ret = 0;
 
+	pr_err("DEBUG %s(): name=%s", __func__, name);                                                                                      
 	kn = __kernfs_create_file(parent_kn, name, 0444,
 				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
 				  &kf_mondata_ops, priv, NULL, NULL);
@@ -3004,6 +3021,7 @@ static int mkdir_mondata_subdir(struct kernfs_node *parent_kn,
 	char name[32];
 	int ret;
 
+	pr_err("DEBUG %s()", __func__);                                                                                      
 	sprintf(name, "mon_%s_%02d", r->name, d->id);
 	/* create the directory */
 	kn = kernfs_create_dir(parent_kn, name, parent_kn->mode, prgrp);
@@ -3071,6 +3089,7 @@ static int mkdir_mondata_subdir_alldom(struct kernfs_node *parent_kn,
 	struct rdt_domain *dom;
 	int ret;
 
+	pr_err("DEBUG %s()", __func__);                                                                                      
 	/* Walking r->domains, ensure it can't race with cpuhp */
 	lockdep_assert_cpus_held();
 
@@ -3108,6 +3127,8 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
 	struct rdt_resource *r;
 	struct kernfs_node *kn;
 	int ret;
+
+	pr_err("DEBUG %s()", __func__);                                                                                      
 
 	/*
 	 * Create the mon_data directory first.
@@ -3863,13 +3884,16 @@ static int _resctrl_online_domain(struct rdt_resource *r, struct rdt_domain *d)
 		return err;
 
 	if (resctrl_is_mbm_enabled()) {
+		pr_err("DEBUG %s(): mbm_handle_overflow", __func__);
 		INIT_DELAYED_WORK(&d->mbm_over, mbm_handle_overflow);
 		mbm_setup_overflow_handler(d, MBM_OVERFLOW_INTERVAL,
 					   RESCTRL_PICK_ANY_CPU);
 	}
 
-	if (resctrl_arch_is_llc_occupancy_enabled())
+	if (resctrl_arch_is_llc_occupancy_enabled()) {
+		pr_err("DEBUG %s(): cqm_handle_limbo", __func__);
 		INIT_DELAYED_WORK(&d->cqm_limbo, cqm_handle_limbo);
+	}
 
 	if (resctrl_mounted && resctrl_arch_mon_capable())
 		mkdir_mondata_subdir_allrdtgrp(r, d);
