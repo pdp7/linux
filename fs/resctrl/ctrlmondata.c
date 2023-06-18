@@ -443,7 +443,9 @@ void mon_event_read(struct rmid_read *rr, struct rdt_resource *r,
 		    int evtid, int first)
 {
 	int cpu;
+	int ret;
 
+	pr_err("DEBUG %s(): ENTER", __func__);
 	/* When picking a cpu from cpu_mask, ensure it can't race with cpuhp */
 	lockdep_assert_cpus_held();
 
@@ -457,8 +459,15 @@ void mon_event_read(struct rmid_read *rr, struct rdt_resource *r,
 	rr->val = 0;
 	rr->first = first;
 
+	d->cpu_mask = *cpu_all_mask;
 	cpu = cpumask_any_housekeeping(&d->cpu_mask);
-	smp_call_on_cpu(cpu, mon_event_count, rr, false);
+	//cpu = 0;
+	pr_err("DEBUG %s(): &d->cpu_mask=%8pb", __func__, &d->cpu_mask);
+	pr_err("DEBUG %s(): call smp_call_on_cpu(cpu:%d mon_event_count)", __func__, cpu);
+	// bug: why no check of return value?
+	ret = smp_call_on_cpu(cpu, mon_event_count, rr, false);
+	pr_err("DEBUG %s(): ret=%d", __func__, ret);
+	pr_err("DEBUG %s(): EXIT", __func__);
 }
 
 int rdtgroup_mondata_show(struct seq_file *m, void *arg)
@@ -472,6 +481,7 @@ int rdtgroup_mondata_show(struct seq_file *m, void *arg)
 	struct rmid_read rr;
 	int ret = 0;
 
+	pr_err("DEBUG %s(): ENTER", __func__);
 	rdtgrp = rdtgroup_kn_lock_live(of->kn);
 	if (!rdtgrp) {
 		ret = -ENOENT;
@@ -489,17 +499,22 @@ int rdtgroup_mondata_show(struct seq_file *m, void *arg)
 		ret = -ENOENT;
 		goto out;
 	}
+	
+	pr_err("DEBUG %s(): resid=%u domid=%u evtid=%u", __func__, resid, domid, evtid);
 
+	pr_err("DEBUG %s(): call mon_event_read()", __func__);
 	mon_event_read(&rr, r, d, rdtgrp, evtid, false);
 
 	if (rr.err == -EIO)
 		seq_puts(m, "Error\n");
 	else if (rr.err == -EINVAL)
 		seq_puts(m, "Unavailable\n");
-	else
+	else {
 		seq_printf(m, "%llu\n", rr.val);
+	}
 
 out:
 	rdtgroup_kn_unlock(of->kn);
+	pr_err("DEBUG %s(): EXIT ret=%d", __func__, ret);
 	return ret;
 }
