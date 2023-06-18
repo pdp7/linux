@@ -114,6 +114,7 @@ void __check_limbo(struct rdt_domain *d, bool force_free)
 	bool rmid_dirty;
 	u64 val = 0;
 
+	pr_err("DEBUG %s()", __func__);
 	arch_mon_ctx = resctrl_arch_mon_ctx_alloc(r, QOS_L3_OCCUP_EVENT_ID);
 	if (arch_mon_ctx < 0)
 		return;
@@ -163,6 +164,7 @@ static struct rmid_entry *resctrl_find_free_rmid(u32 closid)
 	struct rmid_entry *itr;
 	u32 itr_idx, cmp_idx;
 
+	pr_err("DEBUG %s()", __func__);
 	if (list_empty(&rmid_free_lru))
 		return rmid_limbo_count ? ERR_PTR(-EBUSY) : ERR_PTR(-ENOSPC);
 
@@ -203,6 +205,7 @@ bool resctrl_closid_is_dirty(u32 closid)
 	struct rmid_entry *entry;
 	int i;
 
+	pr_err("DEBUG %s()", __func__);
 	lockdep_assert_held(&rdtgroup_mutex);
 
 	if (!IS_ENABLED(CONFIG_RESCTRL_RMID_DEPENDS_ON_CLOSID))
@@ -230,6 +233,7 @@ int alloc_rmid(u32 closid)
 {
 	struct rmid_entry *entry;
 
+	pr_err("DEBUG %s()", __func__);
 	lockdep_assert_held(&rdtgroup_mutex);
 
 	entry = resctrl_find_free_rmid(closid);
@@ -249,6 +253,8 @@ static void add_rmid_to_limbo(struct rmid_entry *entry)
 	u64 val = 0;
 	u32 idx;
 	int err;
+
+	pr_err("DEBUG %s()", __func__);                          
 
 	/* Walking r->domains, ensure it can't race with cpuhp */
 	lockdep_assert_cpus_held();
@@ -289,6 +295,7 @@ void free_rmid(u32 closid, u32 rmid)
 	u32 idx = resctrl_arch_rmid_idx_encode(closid, rmid);
 	struct rmid_entry *entry;
 
+	pr_err("DEBUG %s()", __func__);
 	lockdep_assert_held(&rdtgroup_mutex);
 
 	/* do not allow the default rmid to be free'd */
@@ -309,22 +316,30 @@ static int __mon_event_count(u32 closid, u32 rmid, struct rmid_read *rr)
 	struct mbm_state *m;
 	u64 tval = 0;
 
+	pr_err("DEBUG %s(): ENTER rr->val=%llu rr->first=%d rr->evtid=%d idx=%u",
+			__func__, rr->val, rr->first, rr->evtid, idx);
 	if (rr->first)
 		resctrl_arch_reset_rmid(rr->r, rr->d, closid, rmid, rr->evtid);
 
 	rr->err = resctrl_arch_rmid_read(rr->r, rr->d, closid, rmid, rr->evtid,
 					 &tval, rr->arch_mon_ctx);
+	pr_err("DEBUG %s(): tval=%llu", __func__, tval);
+	//pr_err("DEBUG %s(): rr->err=%u", __func__, rr->err);
 	if (rr->err)
 		return rr->err;
 
 	switch (rr->evtid) {
 	case QOS_L3_OCCUP_EVENT_ID:
+		pr_err("DEBUG %s(): QOS_L3_OCCUP_EVENT_ID=%d", __func__, QOS_L3_OCCUP_EVENT_ID);
 		rr->val += tval;
+		//pr_err("DEBUG %s(): rr->val=%llu", __func__, rr->val);
 		return 0;
 	case QOS_L3_MBM_TOTAL_EVENT_ID:
+		pr_err("DEBUG %s(): QOS_L3_MBM_TOTAL_EVENT_ID=%d", __func__, QOS_L3_MBM_TOTAL_EVENT_ID);
 		m = &rr->d->mbm_total[idx];
 		break;
 	case QOS_L3_MBM_LOCAL_EVENT_ID:
+		pr_err("DEBUG %s(): QOS_L3_MBM_LOCAL_EVENT_ID=%d", __func__, QOS_L3_MBM_LOCAL_EVENT_ID);
 		m = &rr->d->mbm_local[idx];
 		break;
 	default:
@@ -332,15 +347,20 @@ static int __mon_event_count(u32 closid, u32 rmid, struct rmid_read *rr)
 		 * Code would never reach here because an invalid
 		 * event id would fail in resctrl_arch_rmid_read().
 		 */
+		pr_err("DEBUG %s(): return -EINVAL", __func__);
 		return -EINVAL;
 	}
 
 	if (rr->first) {
+		pr_err("DEBUG %s(): call memset(m=%px);", __func__, m);
 		memset(m, 0, sizeof(struct mbm_state));
+		pr_err("DEBUG %s(): return 0;", __func__);
 		return 0;
 	}
 
 	rr->val += tval;
+
+	pr_err("DEBUG %s(): rr->val=%llu; return 0;\n", __func__, rr->val);
 
 	return 0;
 }
@@ -362,6 +382,7 @@ static void mbm_bw_count(u32 closid, u32 rmid, struct rmid_read *rr)
 	struct mbm_state *m = &rr->d->mbm_local[idx];
 	u64 cur_bw, bytes, cur_bytes;
 
+	pr_err("DEBUG %s()", __func__);
 	cur_bytes = rr->val;
 	bytes = cur_bytes - m->prev_bw_bytes;
 	m->prev_bw_bytes = cur_bytes;
@@ -385,12 +406,17 @@ int mon_event_count(void *info)
 	struct list_head *head;
 	int ret;
 
+	pr_err("DEBUG %s(): ENTER", __func__);
 	rdtgrp = rr->rgrp;
 	rr->arch_mon_ctx = resctrl_arch_mon_ctx_alloc(rr->r, rr->evtid);
+	pr_err("DEBUG %s(): rr->arch_mon_ctx = 0x%x", __func__, rr->arch_mon_ctx);
 	if (rr->arch_mon_ctx < 0)
 		return rr->arch_mon_ctx;
 
+	pr_err("DEBUG %s(): rr->evtid=%d", __func__, rr->evtid);
+	pr_err("DEBUG %s(): call __mon_event_count()", __func__);
 	ret = __mon_event_count(rdtgrp->closid, rdtgrp->mon.rmid, rr);
+	pr_err("DEBUG %s(): rr->val=%llu", __func__, rr->val);
 
 	/*
 	 * For Ctrl groups read data from child monitor groups and
@@ -417,6 +443,7 @@ int mon_event_count(void *info)
 
 	resctrl_arch_mon_ctx_free(rr->r, rr->evtid, rr->arch_mon_ctx);
 
+	pr_err("DEBUG %s(): EXIT: return 0", __func__);
 	return 0;
 }
 
@@ -546,6 +573,7 @@ static void mbm_update(struct rdt_resource *r, struct rdt_domain *d,
 	rr.r = r;
 	rr.d = d;
 
+	pr_err("DEBUG %s(): ENTER", __func__);
 	/*
 	 * This is protected from concurrent reads from user
 	 * as both the user and we hold the global mutex.
@@ -592,6 +620,8 @@ void cqm_handle_limbo(struct work_struct *work)
 	struct rdt_domain *d;
 	int cpu;
 
+	pr_err("DEBUG %s()", __func__);
+
 	mutex_lock(&rdtgroup_mutex);
 
 	r = resctrl_arch_get_resource(RDT_RESOURCE_L3);
@@ -619,6 +649,7 @@ void cqm_setup_limbo_handler(struct rdt_domain *dom, unsigned long delay_ms,
 	unsigned long delay = msecs_to_jiffies(delay_ms);
 	int cpu;
 
+	pr_err("DEBUG %s()", __func__);
 	if (exclude_cpu == RESCTRL_PICK_ANY_CPU)
 		cpu = cpumask_any_housekeeping(&dom->cpu_mask);
 	else
