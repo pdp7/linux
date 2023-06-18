@@ -215,41 +215,27 @@ struct rdt_domain *resctrl_arch_find_domain(struct rdt_resource *r, int id)
 
 void resctrl_arch_reset_resources(void)
 {
-	/* not implemented for the RISC-V resctrl implementation */
+	//pr_err("DEBUG %s(): empty", __func__);
 }
 
 int resctrl_arch_mon_ctx_alloc_no_wait(struct rdt_resource *r, int evtid)
 {
 	/* RISC-V can always read an rmid, nothing needs allocating */
+	//pr_err("DEBUG %s(): return 0", __func__);
 	return 0;
 }
 
 void resctrl_arch_mon_ctx_free(struct rdt_resource *r, int evtid, int ctx)
 {
 	/* not implemented for the RISC-V resctrl interface */
+	//pr_err("DEBUG %s(): empty", __func__);
 }
 
 bool resctrl_arch_is_evt_configurable(enum resctrl_event_id evt)
 {
+	//pr_err("DEBUG %s(): return false", __func__);
 	return false;
 }
-
-int resctrl_arch_rmid_read(struct rdt_resource  *r, struct rdt_domain *d,
-			   u32 closid, u32 rmid, enum resctrl_event_id eventid,
-			   u64 *val, int arch_mon_ctx)
-{
-	/*
-	 * The current Qemu implementation of CBQRI capacity and bandwidth
-	 * controllers do not emulate the utilization of resources over
-	 * time. Therefore, Qemu currently sets the invalid bit in
-	 * cc_mon_ctr_val and bc_mon_ctr_val, and there is no meaningful
-	 * value other than 0 to return for reading an RMID (e.g. MCID in
-	 * CBQRI terminology)
-	 */
-
-	return 0;
-}
-
 void resctrl_arch_reset_rmid(struct rdt_resource *r, struct rdt_domain *d,
 			     u32 closid, u32 rmid, enum resctrl_event_id eventid)
 {
@@ -258,17 +244,18 @@ void resctrl_arch_reset_rmid(struct rdt_resource *r, struct rdt_domain *d,
 
 void resctrl_arch_mon_event_config_read(void *info)
 {
-	/* not implemented for the RISC-V resctrl interface */
+	pr_err("DEBUG %s()", __func__);
 }
 
 void resctrl_arch_mon_event_config_write(void *info)
 {
-	/* not implemented for the RISC-V resctrl interface */
+	pr_err("DEBUG %s()", __func__);
 }
 
 void resctrl_arch_reset_rmid_all(struct rdt_resource *r, struct rdt_domain *d)
 {
 	/* not implemented for the RISC-V resctrl implementation */
+	pr_err("DEBUG %s(): empty", __func__);
 }
 
 /* Set capacity block mask (cc_block_mask) */
@@ -417,6 +404,97 @@ static int do_bandwidth_alloc_op(struct cbqri_controller *ctrl, int operation, i
 
 	return 0;
 }
+
+/* Perform operation on bandwidth controller */
+static int do_bandwidth_mon_op(struct cbqri_controller *ctrl, int operation, int mcid)
+{
+	int reg_offset = CBQRI_BC_MON_CTL_OFF;
+	int status;
+	u64 reg;
+
+	//pr_err("DEBUG %s(): operation=0x%x", __func__, operation);
+	//pr_err("DEBUG %s(): reg_offset=0x%x", __func__, reg_offset);
+	reg = ioread64(ctrl->base + reg_offset);
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	reg &= ~(CBQRI_CONTROL_REGISTERS_OP_MASK << CBQRI_CONTROL_REGISTERS_OP_SHIFT);
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	reg |=  (operation & CBQRI_CONTROL_REGISTERS_OP_MASK) <<
+		 CBQRI_CONTROL_REGISTERS_OP_SHIFT;
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	reg &= ~(CBQRI_CONTROL_REGISTERS_RCID_MASK << CBQRI_CONTROL_REGISTERS_RCID_SHIFT);
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	reg |=  (mcid & CBQRI_CONTROL_REGISTERS_RCID_MASK) <<
+		 CBQRI_CONTROL_REGISTERS_RCID_SHIFT;
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	iowrite64(reg, ctrl->base + reg_offset);
+
+	if (qos_wait_busy_flag(ctrl, reg_offset) < 0) {
+		pr_err("%s(): BUSY timeout when executing the operation", __func__);
+		return -EIO;
+	}
+
+	reg = ioread64(ctrl->base + reg_offset);
+	//pr_err("DEBUG %s(): reg=0x%llx", __func__, reg);
+	status = (reg >> CBQRI_CONTROL_REGISTERS_STATUS_SHIFT) &
+		  CBQRI_CONTROL_REGISTERS_STATUS_MASK;
+	//pr_err("DEBUG %s(): status=0x%x", __func__, status);
+	if (status != 1) {
+		pr_err("%s(): operation %d failed with status = %d",
+		       __func__, operation, status);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int resctrl_arch_rmid_read(struct rdt_resource  *r, struct rdt_domain *d,
+			   u32 closid, u32 rmid, enum resctrl_event_id eventid,
+			   u64 *val, int arch_mon_ctx)
+{
+	/*
+	 * The current Qemu implementation of CBQRI capacity and bandwidth
+	 * controllers do not emulate the utilization of resources over
+	 * time. Therefore, Qemu currently sets the invalid bit in
+	 * cc_mon_ctr_val and bc_mon_ctr_val, and there is no meaningful
+	 * value other than 0 to return for reading an RMID (e.g. MCID in
+	 * CBQRI terminology)
+	 */
+
+	struct cbqri_resctrl_res *hw_res;
+	struct cbqri_resctrl_dom *hw_dom;
+	struct cbqri_controller *ctrl;
+	int reg_offset;
+	int err;
+	u64 reg;
+
+	pr_err("DEBUG %s(): ENTER: closid=%u rmid=%u eventid=%u r->rid=%u ", __func__, closid, rmid, eventid, r->rid);
+	hw_res = container_of(r, struct cbqri_resctrl_res, resctrl_res);
+	hw_dom = container_of(d, struct cbqri_resctrl_dom, resctrl_dom);
+
+	ctrl = hw_dom->hw_ctrl;
+
+	/* 
+	if (!r->alloc_capable)
+		return -EINVAL;
+	*/
+
+	/* Capacity read limit operation for RCID (closid) */
+	err = do_bandwidth_mon_op(ctrl, CBQRI_BC_MON_CTL_OP_READ_COUNTER, rmid);
+	if (err < 0) {
+		pr_err("%s(): operation failed: err = %d", __func__, err);
+		return -EIO;
+	}
+
+	hw_dom->ctrl_val[closid] = cbqri_get_rbwb(ctrl);
+
+	//return hw_dom->ctrl_val[closid];
+
+	*val = 56;
+	pr_err("DEBUG %s(): val=%llu", __func__, *val);
+
+	return 0;
+}
+
 
 static int cbqri_apply_bw_config(struct cbqri_resctrl_dom *hw_dom, u32 closid,
 				 enum resctrl_conf_type type, struct cbqri_config *cfg)
@@ -967,6 +1045,7 @@ static int qos_resctrl_add_controller_domain(struct cbqri_controller *ctrl, int 
 	if (!domain)
 		return -ENOSPC;
 
+	//cpumask_setall(&domain->cpu_mask);
 	if (ctrl->ctrl_info->type == CBQRI_CONTROLLER_TYPE_CAPACITY) {
 		cpumask_copy(&domain->cpu_mask, &ctrl->ctrl_info->cache.cpu_mask);
 
