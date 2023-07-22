@@ -24,6 +24,11 @@ properties:
           - const: sipeed,lichee-module-4a
           - const: thead,th1520
 
+      - description: BeagleV Ahead single board computer
+        items:
+          - const: beagle,beaglev-ahead
+          - const: thead,th1520
+
 additionalProperties: true
 
 ...
