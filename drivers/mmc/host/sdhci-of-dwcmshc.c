@@ -20,6 +20,74 @@
 
 #include "sdhci-pltfm.h"
 
+#define DWC_MSHC_PTR_PHY_R  0x300
+#define PHY_CNFG_R      (DWC_MSHC_PTR_PHY_R + 0x00) //32bit
+#define PHY_RSTN  0x0      //1bit
+#define PAD_SP    0x10     //4bit
+#define PAD_SN    0x14     //4bit
+
+#define PHY_CMDPAD_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x04) //16bit
+#define PHY_DATAPAD_CNFG_R  (DWC_MSHC_PTR_PHY_R + 0x06) //16bit
+#define PHY_CLKPAD_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x08) //16bit
+#define PHY_STBPAD_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x0a) //16bit
+#define PHY_RSTNPAD_CNFG_R  (DWC_MSHC_PTR_PHY_R + 0x0c) //16bit
+#define RXSEL 0x0         //3bit
+#define WEAKPULL_EN 0x3   //2bit
+#define TXSLEW_CTRL_P 0x5 //4bit
+#define TXSLEW_CTRL_N 0x9 //4bit
+
+#define PHY_PADTEST_CNFG_R  (DWC_MSHC_PTR_PHY_R + 0x0e)
+#define PHY_PADTEST_OUT_R   (DWC_MSHC_PTR_PHY_R + 0x10)
+#define PHY_PADTEST_IN_R    (DWC_MSHC_PTR_PHY_R + 0x12)
+#define PHY_PRBS_CNFG_R     (DWC_MSHC_PTR_PHY_R + 0x18)
+#define PHY_PHYLBK_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x1a)
+#define PHY_COMMDL_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x1c)
+
+#define PHY_SDCLKDL_CNFG_R  (DWC_MSHC_PTR_PHY_R + 0x1d) //8bit
+#define UPDATE_DC 0x4     //1bit
+
+#define PHY_SDCLKDL_DC_R    (DWC_MSHC_PTR_PHY_R + 0x1e)
+#define PHY_SMPLDL_CNFG_R   (DWC_MSHC_PTR_PHY_R + 0x20)
+#define PHY_ATDL_CNFG_R     (DWC_MSHC_PTR_PHY_R + 0x21)
+#define INPSEL_CNFG  2 //2bit
+
+#define PHY_DLL_CTRL_R      (DWC_MSHC_PTR_PHY_R + 0x24)
+#define DLL_EN  0x0 //1bit
+
+#define PHY_DLL_CNFG1_R     (DWC_MSHC_PTR_PHY_R + 0x25)
+#define PHY_DLL_CNFG2_R     (DWC_MSHC_PTR_PHY_R + 0x26)
+#define PHY_DLLDL_CNFG_R    (DWC_MSHC_PTR_PHY_R + 0x28)
+#define SLV_INPSEL 0x5 //2bit
+
+#define PHY_DLL_OFFST_R     (DWC_MSHC_PTR_PHY_R + 0x29)
+#define PHY_DLLMST_TSTDC_R  (DWC_MSHC_PTR_PHY_R + 0x2a)
+#define PHY_DLLBT_CNFG_R    (DWC_MSHC_PTR_PHY_R + 0x2c)
+#define PHY_DLL_STATUS_R    (DWC_MSHC_PTR_PHY_R + 0x2e)
+#define PHY_DLLDBG_MLKDC_R  (DWC_MSHC_PTR_PHY_R + 0x30)
+#define PHY_DLLDBG_SLKDC_R  (DWC_MSHC_PTR_PHY_R + 0x32)
+
+#define SNPS_SDHCI_CTRL_HS400 0x7
+
+#define P_VENDOR_SPECIFIC_AREA 0x500
+#define EMMC_CTRL_R (P_VENDOR_SPECIFIC_AREA + 0x2c) //16bit
+#define CARD_IS_EMMC 0x0 //1bit
+
+#define AT_CTRL_R   (P_VENDOR_SPECIFIC_AREA + 0x40) // 32bit
+#define AT_EN 0x0             //1bit
+#define CI_SEL 0x1            //1bit
+#define SWIN_TH_EN 0x2        //1bit
+#define RPT_TUNE_ERR 0x3      //1bit
+#define SW_TUNE_EN 0x4        //1bit
+#define WIN_EDGE_SEL 0x8      //4bit
+#define TUNE_CLK_STOP_EN 0x10 //1bit
+#define PRE_CHANGE_DLY 0x11   //2bit
+#define POST_CHANGE_DLY 0x13  //2bit
+#define SWIN_TH_VAL 0x18      //9bit
+
+#define DELAY_LINE_HS400	24
+#define DELAY_LINE_DEFAULT	50
+static void th1520_sdhci_set_phy(struct sdhci_host *host);
+
 #define SDHCI_DWCMSHC_ARG2_STUFF	GENMASK(31, 16)
 
 /* DWCMSHC specific Mode Select value */
@@ -85,6 +153,14 @@ struct rk35xx_priv {
 	struct reset_control *reset;
 	enum dwcmshc_rk_type devtype;
 	u8 txclk_tapnum;
+};
+
+struct th1520_priv {
+	uint32_t delay_line;
+	bool is_emmc_card;
+	bool pull_up_en;
+	bool io_fixed_1v8;
+	long reset_cnt;
 };
 
 struct dwcmshc_priv {
@@ -161,6 +237,9 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	// TODO: this should only exist for th1520
+	struct th1520_priv *th_priv = priv->priv;
+
 	u16 ctrl, ctrl_2;
 
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -188,7 +267,26 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 		ctrl_2 |= DWCMSHC_CTRL_HS400;
 	}
 
+	// TODO: only do this for th1520
+	if (th_priv && th_priv->io_fixed_1v8)
+		ctrl_2 |= SDHCI_CTRL_VDD_180;
+
 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+
+	// TODO: only do this for th1520
+	if (timing == MMC_TIMING_MMC_HS400) {
+		//disable auto tuning
+		u32 reg = sdhci_readl(host, AT_CTRL_R);
+		reg &= ~1;
+		sdhci_writel(host, reg, AT_CTRL_R);
+
+		th_priv->delay_line = DELAY_LINE_HS400;
+		pr_err("DEBUG %s(): ctrl_2=0x%x: (%d == MMC_HS400): call th1520_sdhci_set_phy()", __func__, ctrl_2, timing);
+		th1520_sdhci_set_phy(host);
+	} else {
+		pr_err("DEBUG %s(): ctrl_2=0x%x: (%d != MMC_HS400): write 0 to PHY_DLLDL_CNFG_R", __func__, ctrl_2, timing);
+		sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
+	}
 }
 
 static void dwcmshc_hs400_enhanced_strobe(struct mmc_host *mmc,
@@ -200,6 +298,7 @@ static void dwcmshc_hs400_enhanced_strobe(struct mmc_host *mmc,
 	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
 	int reg = priv->vendor_specific_area1 + DWCMSHC_EMMC_CONTROL;
 
+	pr_err("DEBUG %s(): line %d: ", __func__, __LINE__);
 	vendor = sdhci_readl(host, reg);
 	if (ios->enhanced_strobe)
 		vendor |= DWCMSHC_ENHANCED_STROBE;
@@ -337,6 +436,321 @@ static void rk35xx_sdhci_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
+static void sdhci_phy_1_8v_init_no_pull(struct sdhci_host *host)
+{
+	uint32_t val;
+	sdhci_writel(host, 1, DWC_MSHC_PTR_PHY_R);
+	sdhci_writeb(host, 1 << 4, PHY_SDCLKDL_CNFG_R);
+	sdhci_writeb(host, 0x40, PHY_SDCLKDL_DC_R);
+
+	val = sdhci_readb(host, PHY_SDCLKDL_CNFG_R);
+	val &= ~(1 << 4);
+	sdhci_writeb(host, val, PHY_SDCLKDL_CNFG_R);
+
+
+	val = sdhci_readw(host, PHY_CMDPAD_CNFG_R);
+	sdhci_writew(host, val | 1, PHY_CMDPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_DATAPAD_CNFG_R);
+	sdhci_writew(host, val | 1, PHY_DATAPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_RSTNPAD_CNFG_R);
+	sdhci_writew(host, val | 1, PHY_RSTNPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_STBPAD_CNFG_R);
+	sdhci_writew(host, val | 1, PHY_STBPAD_CNFG_R);
+
+	val = sdhci_readb(host, PHY_DLL_CTRL_R);
+	sdhci_writeb(host, val | 1, PHY_DLL_CTRL_R);
+}
+
+static void sdhci_phy_3_3v_init_no_pull(struct sdhci_host *host)
+{
+	uint32_t val;
+	sdhci_writel(host, 1, DWC_MSHC_PTR_PHY_R);
+	sdhci_writeb(host, 1 << 4, PHY_SDCLKDL_CNFG_R);
+	sdhci_writeb(host, 0x40, PHY_SDCLKDL_DC_R);
+
+	val = sdhci_readb(host, PHY_SDCLKDL_CNFG_R);
+	val &= ~(1 << 4);
+	sdhci_writeb(host, val, PHY_SDCLKDL_CNFG_R);
+
+	val = sdhci_readw(host, PHY_CMDPAD_CNFG_R);
+	sdhci_writew(host, val | 2, PHY_CMDPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_DATAPAD_CNFG_R);
+	sdhci_writew(host, val | 2, PHY_DATAPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_RSTNPAD_CNFG_R);
+	sdhci_writew(host, val | 2, PHY_RSTNPAD_CNFG_R);
+
+	val = sdhci_readw(host, PHY_STBPAD_CNFG_R);
+	sdhci_writew(host, val | 2, PHY_STBPAD_CNFG_R);
+
+	val = sdhci_readb(host, PHY_DLL_CTRL_R);
+	sdhci_writeb(host, val | 1, PHY_DLL_CTRL_R);
+}
+
+static void th1520_phy_1_8v_init(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
+	struct th1520_priv *priv = dwc_priv->priv;
+	u32 val;
+
+	if (!priv) {
+		pr_err("DEBUG th1520_phy_1_8v_init: ERROR priv null");
+		return;
+	}
+
+	if (priv->pull_up_en == 0) {
+		sdhci_phy_1_8v_init_no_pull(host);
+		return;
+	}
+
+	//set driving force
+	sdhci_writel(host, (1 << PHY_RSTN) | (0xc << PAD_SP) | (0xc << PAD_SN), PHY_CNFG_R);
+
+	//disable delay lane
+	sdhci_writeb(host, 1 << UPDATE_DC, PHY_SDCLKDL_CNFG_R);
+	//set delay lane
+	sdhci_writeb(host, priv->delay_line, PHY_SDCLKDL_DC_R);
+	sdhci_writeb(host, 0xa, PHY_DLL_CNFG2_R);
+	//enable delay lane
+	val = sdhci_readb(host, PHY_SDCLKDL_CNFG_R);
+	val &= ~(1 << UPDATE_DC);
+	sdhci_writeb(host, val, PHY_SDCLKDL_CNFG_R);
+
+	val = (1 << RXSEL) | (1 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_CMDPAD_CNFG_R);
+	sdhci_writew(host, val, PHY_DATAPAD_CNFG_R);
+	sdhci_writew(host, val, PHY_RSTNPAD_CNFG_R);
+
+	val = (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_CLKPAD_CNFG_R);
+
+	val = (1 << RXSEL) | (2 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_STBPAD_CNFG_R);
+
+	/* enable data strobe mode */
+	sdhci_writeb(host, 3 << SLV_INPSEL, PHY_DLLDL_CNFG_R);
+	sdhci_writeb(host, (1 << DLL_EN),  PHY_DLL_CTRL_R);
+}
+
+static void th1520_phy_3_3v_init(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
+	struct th1520_priv *priv = dwc_priv->priv;
+	u32 val;
+
+	if (priv->pull_up_en == 0) {
+		sdhci_phy_3_3v_init_no_pull(host);
+		return;
+	}
+
+	//set driving force
+	sdhci_writel(host, (1 << PHY_RSTN) | (0xc << PAD_SP) | (0xc << PAD_SN), PHY_CNFG_R);
+
+	//disable delay lane
+	sdhci_writeb(host, 1 << UPDATE_DC, PHY_SDCLKDL_CNFG_R);
+	//set delay lane
+	sdhci_writeb(host, priv->delay_line, PHY_SDCLKDL_DC_R);
+	sdhci_writeb(host, 0xa, PHY_DLL_CNFG2_R);
+	//enable delay lane
+	val = sdhci_readb(host, PHY_SDCLKDL_CNFG_R);
+	val &= ~(1 << UPDATE_DC);
+	sdhci_writeb(host, val, PHY_SDCLKDL_CNFG_R);
+
+	val = (2 << RXSEL) | (1 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_CMDPAD_CNFG_R);
+	sdhci_writew(host, val, PHY_DATAPAD_CNFG_R);
+	sdhci_writew(host, val, PHY_RSTNPAD_CNFG_R);
+
+	val = (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_CLKPAD_CNFG_R);
+
+	val = (2 << RXSEL) | (2 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
+	sdhci_writew(host, val, PHY_STBPAD_CNFG_R);
+	//pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
+}
+
+static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+	u32 val = 0;
+
+	pr_err("DEBUG %s(): line %d: write PHY_ATDL_CNFG_R", __func__, __LINE__);
+
+	sdhci_writeb(host, 3 << INPSEL_CNFG, PHY_ATDL_CNFG_R);
+
+	val = sdhci_readl(host, AT_CTRL_R);
+	val &= ~((1 << CI_SEL) | (1 << RPT_TUNE_ERR)\
+	    | (1 << SW_TUNE_EN) |(0xf << WIN_EDGE_SEL));
+	val |= (1 << AT_EN) | (1 << SWIN_TH_EN) | (1 << TUNE_CLK_STOP_EN)\
+	    | (1 << PRE_CHANGE_DLY) | (3 << POST_CHANGE_DLY) | (9 << SWIN_TH_VAL);
+
+	pr_err("DEBUG %s(): line %d: write AT_CTRL_R", __func__, __LINE__);
+	sdhci_writel(host, val, AT_CTRL_R);
+
+	val = sdhci_readl(host, AT_CTRL_R);
+	if(!(val & (1 << AT_EN))) {
+		pr_err("DEBUG %s(): line %d: Auto Tuning is NOT Enable!!!", __func__, __LINE__);
+		return -1;
+	}
+
+	val &= ~(1 << AT_EN);
+	sdhci_writel(host, val, AT_CTRL_R);
+
+	pr_err("DEBUG %s(): line %d: return 0", __func__, __LINE__);
+	return 0;
+}
+
+static void th1520_sdhci_set_phy(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
+	struct th1520_priv *priv = dwc_priv->priv;
+	u8 emmc_ctl;
+
+	/*Before power on,set PHY configs*/
+	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
+	if (priv->is_emmc_card) {
+		th1520_phy_1_8v_init(host);
+		emmc_ctl |= (1 << CARD_IS_EMMC);
+	} else {
+		th1520_phy_3_3v_init(host);
+		emmc_ctl &=~(1 << CARD_IS_EMMC);
+	}
+	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
+	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
+}
+
+static void th1520_sdhci_reset(struct sdhci_host *host, u8 mask)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
+	struct th1520_priv *priv = dwc_priv->priv;
+
+	u16 ctrl_2;
+
+	/*host reset*/
+	sdhci_reset(host, mask);
+
+	/* Before phy reset,set io voltage to fixed to 1v8.
+	 * For mask is SDHCI_RESET_ALL,regs will reset to default val.
+	*/
+	if(priv->io_fixed_1v8){
+		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if(! (ctrl_2 & SDHCI_CTRL_VDD_180)){
+			ctrl_2 |= SDHCI_CTRL_VDD_180;
+			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+		}
+	}
+
+	++(priv->reset_cnt);
+	pr_debug("%s: sdhci reset cnt %ld\n",host->hw_name,priv->reset_cnt);
+
+}
+
+/* Add th1520_sdhci_set_phy before POWER ON for this controller.
+ * Similar to public sdhci.c sdhci_set_power_noreg().
+ */
+static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
+				    unsigned short vdd)
+{
+	u8 pwr = 0;
+
+	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
+	if (mode != MMC_POWER_OFF) {
+		switch (1 << vdd) {
+		case MMC_VDD_165_195:
+		/*
+		 * Without a regulator, SDHCI does not support 2.0v
+		 * so we only get here if the driver deliberately
+		 * added the 2.0v range to ocr_avail. Map it to 1.8v
+		 * for the purpose of turning on the power.
+		 */
+		case MMC_VDD_20_21:
+			pwr = SDHCI_POWER_180;
+			break;
+		case MMC_VDD_29_30:
+		case MMC_VDD_30_31:
+			pwr = SDHCI_POWER_300;
+			break;
+		case MMC_VDD_32_33:
+		case MMC_VDD_33_34:
+		/*
+		 * 3.4 ~ 3.6V are valid only for those platforms where it's
+		 * known that the voltage range is supported by hardware.
+		 */
+		case MMC_VDD_34_35:
+		case MMC_VDD_35_36:
+			pwr = SDHCI_POWER_330;
+			break;
+		default:
+			WARN(1, "%s: Invalid vdd %#x\n",
+			     mmc_hostname(host->mmc), vdd);
+			break;
+		}
+	}
+
+	if (host->pwr == pwr) {
+		pr_err("DEBUG %s(): line %d: (host->pwr == pwr) is true; return", __func__, __LINE__);
+		return;
+	}
+
+	host->pwr = pwr;
+	pr_err("DEBUG %s(): line %d: call th1520_sdhci_set_phy()", __func__, __LINE__);
+	th1520_sdhci_set_phy(host); /* T-HEAD SDK */
+
+	if (pwr == 0) {
+		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
+			pr_err("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
+	} else {
+		/*
+		 * Spec says that we should clear the power reg before setting
+		 * a new value. Some controllers don't seem to like this though.
+		 */
+		if (!(host->quirks & SDHCI_QUIRK_SINGLE_POWER_WRITE))
+			sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+
+		/*
+		 * At least the Marvell CaFe chip gets confused if we set the
+		 * voltage and set turn on power at the same time, so set the
+		 * voltage first.
+		 */
+		if (host->quirks & SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER)
+			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+
+		pwr |= SDHCI_POWER_ON;
+
+		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
+			pr_err("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
+		/*
+		 * Some controllers need an extra 10ms delay of 10ms before
+		 * they can apply clock after applying power
+		 */
+		if (host->quirks & SDHCI_QUIRK_DELAY_AFTER_POWER)
+			mdelay(10);
+	}
+	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
+}
+
+static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
+			      unsigned short vdd)
+{
+	if (IS_ERR(host->mmc->supply.vmmc)) {
+		pr_err("DEBUG %s(): line %d: dwcmshc_set_power_noreg", __func__, __LINE__);
+		dwcmshc_set_power_noreg(host, mode, vdd);
+	}
+	else {
+		pr_err("DEBUG %s(): line %d: skip compile error: sdhci_set_power_reg", __func__, __LINE__);
+		//sdhci_set_power_reg(host, mode, vdd);
+	}
+}
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
@@ -353,6 +767,17 @@ static const struct sdhci_ops sdhci_dwcmshc_rk35xx_ops = {
 	.get_max_clock		= rk35xx_get_max_clock,
 	.reset			= rk35xx_sdhci_reset,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
+};
+
+static const struct sdhci_ops sdhci_dwcmshc_th1520_ops = {
+	.set_clock		= sdhci_set_clock,
+	.set_bus_width		= sdhci_set_bus_width,
+	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
+	.get_max_clock		= dwcmshc_get_max_clock,
+	.reset			= th1520_sdhci_reset,
+	.adma_write_desc	= dwcmshc_adma_write_desc,
+	.voltage_switch		= th1520_phy_1_8v_init,
+	.platform_execute_tuning = &th1520_execute_tuning,
 };
 
 static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
@@ -376,6 +801,16 @@ static const struct sdhci_pltfm_data sdhci_dwcmshc_rk35xx_pdata = {
 		  SDHCI_QUIRK_BROKEN_TIMEOUT_VAL,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
 		   SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+};
+
+static const struct sdhci_pltfm_data sdhci_dwcmshc_th1520_pdata = {
+	.ops = &sdhci_dwcmshc_th1520_ops,
+
+	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
+		  SDHCI_QUIRK_SINGLE_POWER_WRITE | // thead sdk
+		  SDHCI_QUIRK_BROKEN_DMA |
+		  SDHCI_QUIRK_BROKEN_ADMA,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
 static int dwcmshc_rk35xx_init(struct sdhci_host *host, struct dwcmshc_priv *dwc_priv)
@@ -435,6 +870,10 @@ static void dwcmshc_rk35xx_postinit(struct sdhci_host *host, struct dwcmshc_priv
 
 static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
 	{
+		.compatible = "thead,th1520-dwcmshc",
+		.data = &sdhci_dwcmshc_th1520_pdata,
+	},
+	{
 		.compatible = "rockchip,rk3588-dwcmshc",
 		.data = &sdhci_dwcmshc_rk35xx_pdata,
 	},
@@ -468,10 +907,12 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	struct sdhci_host *host;
 	struct dwcmshc_priv *priv;
 	struct rk35xx_priv *rk_priv = NULL;
+	struct th1520_priv *th_priv = NULL;
 	const struct sdhci_pltfm_data *pltfm_data;
 	int err;
 	u32 extra;
 
+	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	pltfm_data = device_get_match_data(&pdev->dev);
 	if (!pltfm_data) {
 		dev_err(&pdev->dev, "Error: No device match data found\n");
@@ -490,6 +931,8 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (extra > SDHCI_MAX_SEGS)
 		extra = SDHCI_MAX_SEGS;
 	host->adma_table_cnt += extra;
+
+	host->v4_mode = true; /* from thead */
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
@@ -541,6 +984,62 @@ static int dwcmshc_probe(struct platform_device *pdev)
 			goto err_clk;
 	}
 
+	if (pltfm_data == &sdhci_dwcmshc_th1520_pdata) {
+		pr_err("DEBUG %s(): line %d: (pltfm_data == &sdhci_dwcmshc_th1520_pdata)", __func__, __LINE__);
+
+		th_priv = devm_kzalloc(&pdev->dev, sizeof(struct th1520_priv), GFP_KERNEL);
+		if (!th_priv) {
+			err = -ENOMEM;
+			goto err_clk;
+		}
+
+		priv->priv = th_priv;
+		th_priv->delay_line = DELAY_LINE_DEFAULT;
+
+		if (device_property_present(&pdev->dev, "is_emmc"))
+			th_priv->is_emmc_card = 1;
+		else
+			th_priv->is_emmc_card = 0;
+
+		if (device_property_present(&pdev->dev, "pull_up"))
+			th_priv->pull_up_en = 1;
+		else
+			th_priv->pull_up_en = 0;
+
+		if (device_property_present(&pdev->dev, "io_fixed_1v8"))
+			th_priv->io_fixed_1v8 = true;
+		else
+			th_priv->io_fixed_1v8 = false;
+
+		/* start_signal_voltage_switch will try 3V3 first, when io fixed 1V8,
+		* use SDHCI_SIGNALING_180 ranther than SDHCI_SIGNALING_330 to avoid set to 3V3
+		* in sdhci_start_signal_voltage_switch.
+		*/
+		if(th_priv->io_fixed_1v8){
+			host->flags &=~SDHCI_SIGNALING_330;
+			host->flags |= SDHCI_SIGNALING_180;
+		}
+
+		/*
+		 * The controller needs v4 mode enabled to properly
+		 * communicate with the mmc device.
+		 */
+		sdhci_enable_v4_mode(host);
+
+		/*
+		 * Set flag so the SDHCI host core will disable DMA
+		 * and use PIO mode.
+		 */
+		host->flags &= ~SDHCI_USE_SDMA;
+		host->flags &= ~SDHCI_AUTO_CMD23;
+
+		/*
+		err = dwcmshc_th1520_init(host, priv);
+		if (err)
+			goto err_clk;
+		*/
+	}
+
 #ifdef CONFIG_ACPI
 	if (pltfm_data == &sdhci_dwcmshc_bf3_pdata)
 		sdhci_enable_v4_mode(host);
@@ -548,6 +1047,7 @@ static int dwcmshc_probe(struct platform_device *pdev)
 
 	host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 
+	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: call sdhci_setup_host()", __func__, host->mmc->caps, host->flags);
 	err = sdhci_setup_host(host);
 	if (err)
 		goto err_clk;
@@ -555,21 +1055,26 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (rk_priv)
 		dwcmshc_rk35xx_postinit(host, priv);
 
+	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: call __sdhci_add_host()", __func__, host->mmc->caps, host->flags);
 	err = __sdhci_add_host(host);
 	if (err)
 		goto err_setup_host;
 
+	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: return 0", __func__, host->mmc->caps, host->flags);
 	return 0;
 
 err_setup_host:
+	pr_err("DEBUG %s(): label err_setup_host", __func__);
 	sdhci_cleanup_host(host);
 err_clk:
+	pr_err("DEBUG %s(): label err_clk", __func__);
 	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(priv->bus_clk);
 	if (rk_priv)
 		clk_bulk_disable_unprepare(RK35xx_MAX_CLKS,
 					   rk_priv->rockchip_clks);
 free_pltfm:
+	pr_err("DEBUG %s(): label free_pltfm", __func__);
 	sdhci_pltfm_free(pdev);
 	return err;
 }
