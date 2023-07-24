@@ -337,6 +337,14 @@ static void rk35xx_sdhci_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
+static void th1520_sdhci_reset(struct sdhci_host *host, u8 mask)
+{
+	/*
+	 * MMC controller and phy is configured by vendor u-boot so
+	 * take the simplistic approach of not doing reset in Linux.
+	 */
+}
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
@@ -352,6 +360,15 @@ static const struct sdhci_ops sdhci_dwcmshc_rk35xx_ops = {
 	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
 	.get_max_clock		= rk35xx_get_max_clock,
 	.reset			= rk35xx_sdhci_reset,
+	.adma_write_desc	= dwcmshc_adma_write_desc,
+};
+
+static const struct sdhci_ops sdhci_dwcmshc_th1520_ops = {
+	.set_clock		= sdhci_set_clock,
+	.set_bus_width		= sdhci_set_bus_width,
+	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
+	.get_max_clock		= dwcmshc_get_max_clock,
+	.reset			= th1520_sdhci_reset,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
 };
 
@@ -376,6 +393,13 @@ static const struct sdhci_pltfm_data sdhci_dwcmshc_rk35xx_pdata = {
 		  SDHCI_QUIRK_BROKEN_TIMEOUT_VAL,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
 		   SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+};
+
+static const struct sdhci_pltfm_data sdhci_dwcmshc_th1520_pdata = {
+	.ops = &sdhci_dwcmshc_th1520_ops,
+	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN | SDHCI_QUIRK_BROKEN_DMA |
+		  SDHCI_QUIRK_BROKEN_ADMA,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
 static int dwcmshc_rk35xx_init(struct sdhci_host *host, struct dwcmshc_priv *dwc_priv)
@@ -434,6 +458,10 @@ static void dwcmshc_rk35xx_postinit(struct sdhci_host *host, struct dwcmshc_priv
 }
 
 static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
+	{
+		.compatible = "thead,th1520-dwcmshc",
+		.data = &sdhci_dwcmshc_th1520_pdata,
+	},
 	{
 		.compatible = "rockchip,rk3588-dwcmshc",
 		.data = &sdhci_dwcmshc_rk35xx_pdata,
@@ -545,6 +573,20 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (pltfm_data == &sdhci_dwcmshc_bf3_pdata)
 		sdhci_enable_v4_mode(host);
 #endif
+
+	if (pltfm_data == &sdhci_dwcmshc_th1520_pdata) {
+		/*
+		 * The controller needs v4 mode enabled to properly
+		 * communicate with the mmc device.
+		 */
+		sdhci_enable_v4_mode(host);
+
+		/*
+		 * Set flag so the SDHCI host core will disable DMA
+		 * and use PIO mode.
+		 */
+		host->flags &= ~SDHCI_USE_SDMA;
+	}
 
 	host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 
