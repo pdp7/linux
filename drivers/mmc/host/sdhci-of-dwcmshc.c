@@ -779,6 +779,7 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 {
 	u8 pwr = 0;
 
+	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (mode != MMC_POWER_OFF) {
 		switch (1 << vdd) {
 		case MMC_VDD_165_195:
@@ -812,10 +813,13 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		}
 	}
 
-	if (host->pwr == pwr)
+	if (host->pwr == pwr) {
+		pr_err("DEBUG %s(): line %d: (host->pwr == pwr) is true; return", __func__, __LINE__);
 		return;
+	}
 
 	host->pwr = pwr;
+	pr_err("DEBUG %s(): line %d: call snps_sdhci_set_phy()", __func__, __LINE__);
 	snps_sdhci_set_phy(host); /* T-HEAD SDK */
 
 	if (pwr == 0) {
@@ -850,6 +854,7 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		if (host->quirks & SDHCI_QUIRK_DELAY_AFTER_POWER)
 			mdelay(10);
 	}
+	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
@@ -891,10 +896,11 @@ static const struct sdhci_ops sdhci_dwcmshc_th1520_ops = {
 	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
 	.get_max_clock		= dwcmshc_get_max_clock,
 	.reset			= snps_sdhci_reset,
-	.get_ro			= dwcmshc_pltfm_get_ro,
-	.voltage_switch		= snps_phy_1_8v_init,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
+	.get_ro			= dwcmshc_pltfm_get_ro,
 	.platform_execute_tuning = &snps_execute_tuning,
+        //.set_power              = dwcmshc_set_power,
+	.voltage_switch		= snps_phy_1_8v_init,
 };
 
 static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
