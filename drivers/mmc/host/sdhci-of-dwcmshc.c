@@ -527,7 +527,7 @@ static void th1520_phy_1_8v_init(struct sdhci_host *host)
 
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
-	if (priv->pull_up_en == 0)
+	if (priv->pull_up_en == 0) {
 		sdhci_phy_1_8v_init_no_pull(host);
 		return;
 	}
@@ -597,12 +597,12 @@ static void th1520_phy_3_3v_init(struct sdhci_host *host)
 
 	val = (2 << RXSEL) | (2 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
 	sdhci_writew(host, val, PHY_STBPAD_CNFG_R);
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
+	//pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
+	//pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	#define DW_SDHCI_TUNING_LOOP_COUNT 128
 	int i;
 	/*
@@ -615,8 +615,7 @@ static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 		sdhci_send_tuning(host, opcode);
 
 		if (!host->tuning_done) {
-			pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n",
-				 mmc_hostname(host->mmc));
+			//pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
 			sdhci_abort_tuning(host, opcode);
 			return -ETIMEDOUT;
 		}
@@ -627,16 +626,14 @@ static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
-			if (ctrl & SDHCI_CTRL_TUNED_CLK)
+			if (ctrl & SDHCI_CTRL_TUNED_CLK) {
 				return 0; /* Success! */
 			}
 			break;
 		}
 	}
-
-	pr_info("%s: Tuning failed, falling back to fixed sampling clock\n",
-		mmc_hostname(host->mmc));
-	sdhci_reset_tuning(host);
+	//pr_info("%s: Tuning failed, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
+	//sdhci_reset_tuning(host);
 	return -EAGAIN;
 }
 
@@ -644,9 +641,9 @@ static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	u32 val = 0;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
+	//pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (host->flags & SDHCI_HS400_TUNING) {
-		pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): return 0 <<<<<<<<<<<<<<<<<<", __func__, __LINE__);
+		//pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): return 0 <<<<<<<<<<<<<<<<<<", __func__, __LINE__);
 		return 0;
 	}
 
