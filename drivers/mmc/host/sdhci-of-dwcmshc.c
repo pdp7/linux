@@ -821,7 +821,7 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
-			sdhci_runtime_pm_bus_off(host);
+			pr_err("DEBUG: SKIP sdhci_runtime_pm_bus_on(host)");
 	} else {
 		/*
 		 * Spec says that we should clear the power reg before setting
@@ -842,7 +842,7 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
-			sdhci_runtime_pm_bus_on(host);
+			pr_err("DEBUG: SKIP sdhci_runtime_pm_bus_on(host)");
 		/*
 		 * Some controllers need an extra 10ms delay of 10ms before
 		 * they can apply clock after applying power
@@ -855,12 +855,14 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
 		     unsigned short vdd)
 {
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
-	if (IS_ERR(host->mmc->supply.vmmc))
+	if (IS_ERR(host->mmc->supply.vmmc)) {
+		pr_err("DEBUG %s(): line %d: dwcmshc_set_power_noreg", __func__, __LINE__);
 		dwcmshc_set_power_noreg(host, mode, vdd);
-	else
-		sdhci_set_power_reg(host, mode, vdd);
-       	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
+	}
+	else {
+		pr_err("DEBUG %s(): line %d: SKIP call sdhci_set_power_reg", __func__, __LINE__);
+		//sdhci_set_power_reg(host, mode, vdd);
+	}
 }
 
 
