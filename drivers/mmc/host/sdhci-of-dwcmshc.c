@@ -99,7 +99,7 @@
 
 static uint32_t delay_line = 50;
 
-static void snps_sdhci_set_phy(struct sdhci_host *host);
+static void th1520_sdhci_set_phy(struct sdhci_host *host);
 /////////////////////////////////////////////////////////////
 
 /* DWC IP vendor area 1 pointer */
@@ -249,13 +249,13 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
-	u16 ctrl_2;
+	u16 ctrl, ctrl_2;
 
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 	/* Select Bus Speed Mode for host */
 	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
 	if ((timing == MMC_TIMING_MMC_HS200) ||
-		(timing == MMC_TIMING_UHS_SDR104))
+	    (timing == MMC_TIMING_UHS_SDR104))
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 	else if (timing == MMC_TIMING_UHS_SDR12)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
@@ -291,7 +291,7 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_writel(host, reg, AT_CTRL_R);
 
 		delay_line = HS400_DELAY_LINE;
-		snps_sdhci_set_phy(host);	/* update tx delay*/
+		th1520_sdhci_set_phy(host);	/* update tx delay*/
 	} else {
 		sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
 	}
@@ -519,7 +519,7 @@ static void sdhci_phy_3_3v_init_no_pull(struct sdhci_host *host)
 	sdhci_writeb(host, val | 1, PHY_DLL_CTRL_R);
 }
 
-static void snps_phy_1_8v_init(struct sdhci_host *host)
+static void th1520_phy_1_8v_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host;
 	struct dwcmshc_priv *priv;
@@ -529,6 +529,8 @@ static void snps_phy_1_8v_init(struct sdhci_host *host)
 	priv = sdhci_pltfm_priv(pltfm_host);
 	if (priv->pull_up_en == 0)
 		sdhci_phy_1_8v_init_no_pull(host);
+		return;
+	}
 
 	//set driving force
 	sdhci_writel(host, (1 << PHY_RSTN) | (0xc << PAD_SP) | (0xc << PAD_SN), PHY_CNFG_R);
@@ -559,7 +561,7 @@ static void snps_phy_1_8v_init(struct sdhci_host *host)
 	sdhci_writeb(host, (1 << DLL_EN),  PHY_DLL_CTRL_R);
 }
 
-static void snps_phy_3_3v_init(struct sdhci_host *host)
+static void th1520_phy_3_3v_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host;
 	struct dwcmshc_priv *priv;
@@ -598,7 +600,7 @@ static void snps_phy_3_3v_init(struct sdhci_host *host)
 	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
-static int __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
+static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	#define DW_SDHCI_TUNING_LOOP_COUNT 128
@@ -613,7 +615,7 @@ static int __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 		sdhci_send_tuning(host, opcode);
 
 		if (!host->tuning_done) {
-			pr_err("DEBUG %s: Tuning timeout, falling back to fixed sampling clock\n",
+			pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n",
 				 mmc_hostname(host->mmc));
 			sdhci_abort_tuning(host, opcode);
 			return -ETIMEDOUT;
@@ -625,20 +627,20 @@ static int __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
-			if (ctrl & SDHCI_CTRL_TUNED_CLK) {
-				pr_err("DEBUG %s(): line %d: return 0 (success)", __func__, __LINE__);
+			if (ctrl & SDHCI_CTRL_TUNED_CLK)
 				return 0; /* Success! */
 			}
 			break;
 		}
 	}
 
-	pr_err("DEBUG %s: Tuning failed, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
+	pr_info("%s: Tuning failed, falling back to fixed sampling clock\n",
+		mmc_hostname(host->mmc));
 	sdhci_reset_tuning(host);
 	return -EAGAIN;
 }
 
-static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
+static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	u32 val = 0;
 
@@ -670,13 +672,13 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 	pr_err("DEBUG %s(): line %d: call sdhci_start_tuning()", __func__, __LINE__);
 	sdhci_start_tuning(host);
 
-	pr_err("DEBUG %s(): line %d: call __sdhci_execute_tuning()", __func__, __LINE__);
-	host->tuning_err = __sdhci_execute_tuning(host, opcode);
+	pr_err("DEBUG %s(): line %d: call __th1520_execute_tuning()", __func__, __LINE__);
+	host->tuning_err = __th1520_execute_tuning(host, opcode);
 	if (host->tuning_err) {
-		val &= ~(1 << AT_EN);
-		sdhci_writel(host, val, AT_CTRL_R);
-		pr_err("DEBUG %s(): line %d: (host->tuning_err) -> return -1", __func__, __LINE__);
-		return -1;
+	val &= ~(1 << AT_EN);
+	sdhci_writel(host, val, AT_CTRL_R);
+	pr_err("DEBUG %s(): line %d: (host->tuning_err) -> return -1", __func__, __LINE__);
+	return -1;
 	}
 
 	pr_err("DEBUG %s(): line %d: call sdhci_end_tuning()", __func__, __LINE__);
@@ -686,7 +688,7 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 	return 0;
 }
 
-static void snps_sdhci_set_phy(struct sdhci_host *host)
+static void th1520_sdhci_set_phy(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host;
 	struct dwcmshc_priv *priv;
@@ -698,17 +700,17 @@ static void snps_sdhci_set_phy(struct sdhci_host *host)
 	/*Before power on,set PHY configs*/
 	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
 	if (priv->is_emmc_card) {
-		snps_phy_1_8v_init(host);
+		th1520_phy_1_8v_init(host);
 		emmc_ctl |= (1 << CARD_IS_EMMC);
 	} else {
-		snps_phy_3_3v_init(host);
+		th1520_phy_3_3v_init(host);
 		emmc_ctl &=~(1 << CARD_IS_EMMC);
 	}
 	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
 	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
 }
 
-static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
+static void th1520_sdhci_reset(struct sdhci_host *host, u8 mask)
 {
 	struct sdhci_pltfm_host *pltfm_host;
 	struct dwcmshc_priv *priv;
@@ -741,11 +743,11 @@ static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
 	} 
 	
 	++(priv->reset_cnt);
-	pr_err("DEBUG %s: sdhci reset cnt %ld\n",host->hw_name,priv->reset_cnt);
+	pr_debug("%s: sdhci reset cnt %ld\n",host->hw_name,priv->reset_cnt);
 
 }
 
-/* Add snps_sdhci_set_phy before POWER ON for this controller.
+/* Add th1520_sdhci_set_phy before POWER ON for this controller.
  * Similar to public sdhci.c sdhci_set_power_noreg().
  */
 static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
@@ -793,8 +795,8 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 	}
 
 	host->pwr = pwr;
-	pr_err("DEBUG %s(): line %d: call snps_sdhci_set_phy()", __func__, __LINE__);
-	snps_sdhci_set_phy(host); /* T-HEAD SDK */
+	pr_err("DEBUG %s(): line %d: call th1520_sdhci_set_phy()", __func__, __LINE__);
+	th1520_sdhci_set_phy(host); /* T-HEAD SDK */
 
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
@@ -869,12 +871,12 @@ static const struct sdhci_ops sdhci_dwcmshc_th1520_ops = {
 	.set_bus_width		= sdhci_set_bus_width,
 	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
 	.get_max_clock		= dwcmshc_get_max_clock,
-	.reset			= snps_sdhci_reset,
+	.reset			= th1520_sdhci_reset,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
 	.get_ro			= dwcmshc_pltfm_get_ro,
-	.platform_execute_tuning = &snps_execute_tuning,
+	.platform_execute_tuning = &th1520_execute_tuning,
         //.set_power              = dwcmshc_set_power,
-	.voltage_switch		= snps_phy_1_8v_init,
+	.voltage_switch		= th1520_phy_1_8v_init,
 };
 
 static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
