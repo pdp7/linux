@@ -771,20 +771,6 @@ static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
 
 }
 
-static void sdhci_set_power_reg(struct sdhci_host *host, unsigned char mode,
-				unsigned short vdd)
-{
-	struct mmc_host *mmc = host->mmc;
-
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
-	mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, vdd);
-
-	if (mode != MMC_POWER_OFF)
-		sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
-	else
-		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
-}
 /* Add snps_sdhci_set_phy before POWER ON for this controller.
  * Similar to public sdhci.c sdhci_set_power_noreg().
  */
@@ -793,7 +779,6 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 {
 	u8 pwr = 0;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (mode != MMC_POWER_OFF) {
 		switch (1 << vdd) {
 		case MMC_VDD_165_195:
@@ -827,10 +812,8 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		}
 	}
 
-	if (host->pwr == pwr) {
-		pr_err("DEBUG %s(): line %d: (host->pwr == pwr); return", __func__, __LINE__);
+	if (host->pwr == pwr)
 		return;
-	}
 
 	host->pwr = pwr;
 	snps_sdhci_set_phy(host);
