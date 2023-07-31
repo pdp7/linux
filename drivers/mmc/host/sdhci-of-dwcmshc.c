@@ -464,20 +464,9 @@ static void rk35xx_sdhci_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
-static void th1520_sdhci_reset(struct sdhci_host *host, u8 mask)
-{
-	pr_err("DEBUG %s(): line %d: ", __func__, __LINE__);
-	/*
-	 * MMC controller and phy is configured by vendor u-boot so
-	 * take the simplistic approach of not doing reset in Linux.
-	 */
-}
-
-
 static void sdhci_phy_1_8v_init_no_pull(struct sdhci_host *host)
 {
 	uint32_t val;
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	sdhci_writel(host, 1, DWC_MSHC_PTR_PHY_R);
 	sdhci_writeb(host, 1 << 4, PHY_SDCLKDL_CNFG_R);
 	sdhci_writeb(host, 0x40, PHY_SDCLKDL_DC_R);
@@ -501,13 +490,11 @@ static void sdhci_phy_1_8v_init_no_pull(struct sdhci_host *host)
 
 	val = sdhci_readb(host, PHY_DLL_CTRL_R);
 	sdhci_writeb(host, val | 1, PHY_DLL_CTRL_R);
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void sdhci_phy_3_3v_init_no_pull(struct sdhci_host *host)
 {
 	uint32_t val;
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	sdhci_writel(host, 1, DWC_MSHC_PTR_PHY_R);
 	sdhci_writeb(host, 1 << 4, PHY_SDCLKDL_CNFG_R);
 	sdhci_writeb(host, 0x40, PHY_SDCLKDL_DC_R);
@@ -530,7 +517,6 @@ static void sdhci_phy_3_3v_init_no_pull(struct sdhci_host *host)
 
 	val = sdhci_readb(host, PHY_DLL_CTRL_R);
 	sdhci_writeb(host, val | 1, PHY_DLL_CTRL_R);
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void snps_phy_1_8v_init(struct sdhci_host *host)
@@ -539,15 +525,10 @@ static void snps_phy_1_8v_init(struct sdhci_host *host)
 	struct dwcmshc_priv *priv;
 	u32 val;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
-	if (priv->pull_up_en == 0) {
-		pr_err("DEBUG %s(): line %d: (priv->pull_up_en == 0) -> call sdhci_phy_1_8v_init_no_pull()", __func__, __LINE__);
+	if (priv->pull_up_en == 0)
 		sdhci_phy_1_8v_init_no_pull(host);
-		pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
-		return;
-	}
 
 	//set driving force
 	sdhci_writel(host, (1 << PHY_RSTN) | (0xc << PAD_SP) | (0xc << PAD_SN), PHY_CNFG_R);
@@ -576,7 +557,6 @@ static void snps_phy_1_8v_init(struct sdhci_host *host)
 	/* enable data strobe mode */
 	sdhci_writeb(host, 3 << SLV_INPSEL, PHY_DLLDL_CNFG_R);
 	sdhci_writeb(host, (1 << DLL_EN),  PHY_DLL_CTRL_R);
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void snps_phy_3_3v_init(struct sdhci_host *host)
@@ -585,13 +565,10 @@ static void snps_phy_3_3v_init(struct sdhci_host *host)
 	struct dwcmshc_priv *priv;
 	u32 val;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
 	if (priv->pull_up_en == 0) {
-		pr_err("DEBUG %s(): line %d: (priv->pull_up_en == 0) -> call sdhci_phy_3_3v_init_no_pull()", __func__, __LINE__);
 		sdhci_phy_3_3v_init_no_pull(host);
-		pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 		return;
 	}
 
@@ -667,8 +644,8 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (host->flags & SDHCI_HS400_TUNING) {
-		pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): SKIP return 0", __func__, __LINE__);
-		//return 0;
+		pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): return 0 <<<<<<<<<<<<<<<<<<", __func__, __LINE__);
+		return 0;
 	}
 
 	sdhci_writeb(host, 3 << INPSEL_CNFG, PHY_ATDL_CNFG_R);
@@ -684,7 +661,6 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 	val = sdhci_readl(host, AT_CTRL_R);
 	if(!(val & (1 << AT_EN))) {
 		pr_err("*****Auto Tuning is NOT Enable!!!\n");
-		pr_err("DEBUG %s(): line %d: return -1", __func__, __LINE__);
 		return -1;
 	}
 
@@ -697,10 +673,10 @@ static int snps_execute_tuning(struct sdhci_host *host, u32 opcode)
 	pr_err("DEBUG %s(): line %d: call __sdhci_execute_tuning()", __func__, __LINE__);
 	host->tuning_err = __sdhci_execute_tuning(host, opcode);
 	if (host->tuning_err) {
-	val &= ~(1 << AT_EN);
-	sdhci_writel(host, val, AT_CTRL_R);
-	pr_err("DEBUG %s(): line %d: (host->tuning_err) -> return -1", __func__, __LINE__);
-	return -1;
+		val &= ~(1 << AT_EN);
+		sdhci_writel(host, val, AT_CTRL_R);
+		pr_err("DEBUG %s(): line %d: (host->tuning_err) -> return -1", __func__, __LINE__);
+		return -1;
 	}
 
 	pr_err("DEBUG %s(): line %d: call sdhci_end_tuning()", __func__, __LINE__);
@@ -719,7 +695,6 @@ static void snps_sdhci_set_phy(struct sdhci_host *host)
 	pltfm_host = sdhci_priv(host);
 	priv = sdhci_pltfm_priv(pltfm_host);
 	
-       	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	/*Before power on,set PHY configs*/
 	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
 	if (priv->is_emmc_card) {
@@ -731,7 +706,6 @@ static void snps_sdhci_set_phy(struct sdhci_host *host)
 	}
 	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
 	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
-       	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void snps_sdhci_reset(struct sdhci_host *host, u8 mask)
