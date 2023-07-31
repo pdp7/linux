@@ -816,14 +816,12 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		return;
 
 	host->pwr = pwr;
-	snps_sdhci_set_phy(host);
+	snps_sdhci_set_phy(host); /* T-HEAD SDK */
 
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-		/*
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
 			sdhci_runtime_pm_bus_off(host);
-		*/
 	} else {
 		/*
 		 * Spec says that we should clear the power reg before setting
@@ -843,10 +841,8 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		pwr |= SDHCI_POWER_ON;
 
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
-		/*
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
 			sdhci_runtime_pm_bus_on(host);
-		*/
 		/*
 		 * Some controllers need an extra 10ms delay of 10ms before
 		 * they can apply clock after applying power
@@ -854,7 +850,6 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		if (host->quirks & SDHCI_QUIRK_DELAY_AFTER_POWER)
 			mdelay(10);
 	}
-       	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
