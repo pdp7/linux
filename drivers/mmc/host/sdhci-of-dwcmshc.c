@@ -915,8 +915,8 @@ static const struct sdhci_ops sdhci_dwcmshc_th1520_ops = {
 	.get_max_clock		= dwcmshc_get_max_clock,
 	.reset			= th1520_sdhci_reset,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
-	.get_ro			= dwcmshc_pltfm_get_ro,
-	.platform_execute_tuning = &th1520_execute_tuning,
+	//.get_ro			= dwcmshc_pltfm_get_ro,
+	//.platform_execute_tuning = &th1520_execute_tuning,
         //.set_power              = dwcmshc_set_power,
 	.voltage_switch		= th1520_phy_1_8v_init,
 };
