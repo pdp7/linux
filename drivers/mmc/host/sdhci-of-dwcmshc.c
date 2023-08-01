@@ -600,7 +600,7 @@ static void th1520_phy_3_3v_init(struct sdhci_host *host)
 	//pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
-static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
+static int original__th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	//pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	#define DW_SDHCI_TUNING_LOOP_COUNT 128
@@ -615,7 +615,7 @@ static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 		sdhci_send_tuning(host, opcode);
 
 		if (!host->tuning_done) {
-			//pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
+			pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
 			sdhci_abort_tuning(host, opcode);
 			return -ETIMEDOUT;
 		}
@@ -632,18 +632,63 @@ static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 			break;
 		}
 	}
-	//pr_info("%s: Tuning failed, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
-	//sdhci_reset_tuning(host);
+	pr_info("%s: Tuning failed, falling back to fixed sampling clock\n", mmc_hostname(host->mmc));
+	sdhci_reset_tuning(host);
 	return -EAGAIN;
+}
+
+static int __th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+        int i;
+
+	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
+
+        /*
+         * Issue opcode repeatedly till Execute Tuning is set to 0 or the number
+         * of loops reaches tuning loop count.
+         */
+        for (i = 0; i < host->tuning_loop_count; i++) {
+                u16 ctrl;
+
+                sdhci_send_tuning(host, opcode);
+
+                if (!host->tuning_done) {
+                        pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n",
+                                 mmc_hostname(host->mmc));
+                        sdhci_abort_tuning(host, opcode);
+			pr_err("DEBUG %s(): line %d: return -ETIMEDOUT", __func__, __LINE__);
+                        return -ETIMEDOUT;
+                }
+
+                /* Spec does not require a delay between tuning cycles */
+                if (host->tuning_delay > 0)
+                        mdelay(host->tuning_delay);
+
+                ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+                if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
+                        if (ctrl & SDHCI_CTRL_TUNED_CLK) {
+				pr_err("DEBUG %s(): line %d: return 0", __func__, __LINE__);
+                                return 0; /* Success! */
+			}
+                        break;
+                }
+
+        }
+
+        pr_info("%s: Tuning failed, falling back to fixed sampling clock\n",
+                mmc_hostname(host->mmc));
+        sdhci_reset_tuning(host);
+	pr_err("DEBUG %s(): line %d: return -EAGAIN", __func__, __LINE__);
+        return -EAGAIN;
 }
 
 static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	u32 val = 0;
 
-	//pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
+	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (host->flags & SDHCI_HS400_TUNING) {
-		//pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): return 0 <<<<<<<<<<<<<<<<<<", __func__, __LINE__);
+		pr_err("DEBUG %s(): line %d: (host->flags & SDHCI_HS400_TUNING): return 0 <<<<<<<<<<<<<<<<<<", __func__, __LINE__);
 		return 0;
 	}
 
