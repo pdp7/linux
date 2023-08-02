@@ -281,10 +281,8 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 		sdhci_writel(host, reg, AT_CTRL_R);
 
 		th_priv->delay_line = DELAY_LINE_HS400;
-		pr_err("DEBUG %s(): ctrl_2=0x%x: (%d == MMC_HS400): call th1520_sdhci_set_phy()", __func__, ctrl_2, timing);
 		th1520_sdhci_set_phy(host);
 	} else {
-		pr_err("DEBUG %s(): ctrl_2=0x%x: (%d != MMC_HS400): write 0 to PHY_DLLDL_CNFG_R", __func__, ctrl_2, timing);
 		sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
 	}
 }
@@ -298,7 +296,6 @@ static void dwcmshc_hs400_enhanced_strobe(struct mmc_host *mmc,
 	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
 	int reg = priv->vendor_specific_area1 + DWCMSHC_EMMC_CONTROL;
 
-	pr_err("DEBUG %s(): line %d: ", __func__, __LINE__);
 	vendor = sdhci_readl(host, reg);
 	if (ios->enhanced_strobe)
 		vendor |= DWCMSHC_ENHANCED_STROBE;
@@ -499,7 +496,7 @@ static void th1520_phy_1_8v_init(struct sdhci_host *host)
 	u32 val;
 
 	if (!priv) {
-		pr_err("DEBUG th1520_phy_1_8v_init: ERROR priv null");
+		pr_err("th1520_phy_1_8v_init: ERROR priv null");
 		return;
 	}
 
@@ -572,14 +569,11 @@ static void th1520_phy_3_3v_init(struct sdhci_host *host)
 
 	val = (2 << RXSEL) | (2 << WEAKPULL_EN) | (3 << TXSLEW_CTRL_P) | (3 << TXSLEW_CTRL_N);
 	sdhci_writew(host, val, PHY_STBPAD_CNFG_R);
-	//pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 {
 	u32 val = 0;
-
-	pr_err("DEBUG %s(): line %d: write PHY_ATDL_CNFG_R", __func__, __LINE__);
 
 	sdhci_writeb(host, 3 << INPSEL_CNFG, PHY_ATDL_CNFG_R);
 
@@ -589,19 +583,17 @@ static int th1520_execute_tuning(struct sdhci_host *host, u32 opcode)
 	val |= (1 << AT_EN) | (1 << SWIN_TH_EN) | (1 << TUNE_CLK_STOP_EN)\
 	    | (1 << PRE_CHANGE_DLY) | (3 << POST_CHANGE_DLY) | (9 << SWIN_TH_VAL);
 
-	pr_err("DEBUG %s(): line %d: write AT_CTRL_R", __func__, __LINE__);
 	sdhci_writel(host, val, AT_CTRL_R);
 
 	val = sdhci_readl(host, AT_CTRL_R);
 	if(!(val & (1 << AT_EN))) {
-		pr_err("DEBUG %s(): line %d: Auto Tuning is NOT Enable!!!", __func__, __LINE__);
+		pr_err("%s(): line %d: Auto Tuning is NOT", __func__, __LINE__);
 		return -1;
 	}
 
 	val &= ~(1 << AT_EN);
 	sdhci_writel(host, val, AT_CTRL_R);
 
-	pr_err("DEBUG %s(): line %d: return 0", __func__, __LINE__);
 	return 0;
 }
 
@@ -660,7 +652,6 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 {
 	u8 pwr = 0;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	if (mode != MMC_POWER_OFF) {
 		switch (1 << vdd) {
 		case MMC_VDD_165_195:
@@ -695,18 +686,16 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 	}
 
 	if (host->pwr == pwr) {
-		pr_err("DEBUG %s(): line %d: (host->pwr == pwr) is true; return", __func__, __LINE__);
 		return;
 	}
 
 	host->pwr = pwr;
-	pr_err("DEBUG %s(): line %d: call th1520_sdhci_set_phy()", __func__, __LINE__);
 	th1520_sdhci_set_phy(host); /* T-HEAD SDK */
 
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
-			pr_err("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
+			pr_warn("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
 	} else {
 		/*
 		 * Spec says that we should clear the power reg before setting
@@ -727,7 +716,7 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
-			pr_err("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
+			pr_warn("DEBUG: skip compile error: sdhci_runtime_pm_bus_on(host)");
 		/*
 		 * Some controllers need an extra 10ms delay of 10ms before
 		 * they can apply clock after applying power
@@ -735,18 +724,17 @@ static void dwcmshc_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		if (host->quirks & SDHCI_QUIRK_DELAY_AFTER_POWER)
 			mdelay(10);
 	}
-	pr_err("DEBUG %s(): line %d: return", __func__, __LINE__);
 }
 
 static void dwcmshc_set_power(struct sdhci_host *host, unsigned char mode,
 			      unsigned short vdd)
 {
 	if (IS_ERR(host->mmc->supply.vmmc)) {
-		pr_err("DEBUG %s(): line %d: dwcmshc_set_power_noreg", __func__, __LINE__);
+		pr_warn("DEBUG %s(): line %d: dwcmshc_set_power_noreg", __func__, __LINE__);
 		dwcmshc_set_power_noreg(host, mode, vdd);
 	}
 	else {
-		pr_err("DEBUG %s(): line %d: skip compile error: sdhci_set_power_reg", __func__, __LINE__);
+		pr_warn("DEBUG %s(): line %d: skip compile error: sdhci_set_power_reg", __func__, __LINE__);
 		//sdhci_set_power_reg(host, mode, vdd);
 	}
 }
@@ -912,7 +900,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	int err;
 	u32 extra;
 
-	pr_err("DEBUG %s(): line %d: enter", __func__, __LINE__);
 	pltfm_data = device_get_match_data(&pdev->dev);
 	if (!pltfm_data) {
 		dev_err(&pdev->dev, "Error: No device match data found\n");
@@ -985,7 +972,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	}
 
 	if (pltfm_data == &sdhci_dwcmshc_th1520_pdata) {
-		pr_err("DEBUG %s(): line %d: (pltfm_data == &sdhci_dwcmshc_th1520_pdata)", __func__, __LINE__);
 
 		th_priv = devm_kzalloc(&pdev->dev, sizeof(struct th1520_priv), GFP_KERNEL);
 		if (!th_priv) {
@@ -1047,7 +1033,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 
 	host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 
-	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: call sdhci_setup_host()", __func__, host->mmc->caps, host->flags);
 	err = sdhci_setup_host(host);
 	if (err)
 		goto err_clk;
@@ -1055,26 +1040,24 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (rk_priv)
 		dwcmshc_rk35xx_postinit(host, priv);
 
-	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: call __sdhci_add_host()", __func__, host->mmc->caps, host->flags);
 	err = __sdhci_add_host(host);
 	if (err)
 		goto err_setup_host;
 
-	pr_err("DEBUG %s(): host->mmc->caps=0x%x host->flags=0x%x: return 0", __func__, host->mmc->caps, host->flags);
 	return 0;
 
 err_setup_host:
-	pr_err("DEBUG %s(): label err_setup_host", __func__);
+	pr_warn("%s(): label err_setup_host", __func__);
 	sdhci_cleanup_host(host);
 err_clk:
-	pr_err("DEBUG %s(): label err_clk", __func__);
+	pr_warn("%s(): label err_clk", __func__);
 	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(priv->bus_clk);
 	if (rk_priv)
 		clk_bulk_disable_unprepare(RK35xx_MAX_CLKS,
 					   rk_priv->rockchip_clks);
 free_pltfm:
-	pr_err("DEBUG %s(): label free_pltfm", __func__);
+	pr_warn("%s(): label free_pltfm", __func__);
 	sdhci_pltfm_free(pdev);
 	return err;
 }
