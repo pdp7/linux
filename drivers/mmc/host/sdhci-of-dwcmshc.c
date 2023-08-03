@@ -914,19 +914,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		 * communicate with the mmc device.
 		 */
 		sdhci_enable_v4_mode(host);
-
-		/*
-		 * Set flag so the SDHCI host core will disable DMA
-		 * and use PIO mode.
-		 */
-		host->flags &= ~SDHCI_USE_SDMA;
-		host->flags &= ~SDHCI_AUTO_CMD23;
-
-		/*
-		err = dwcmshc_th1520_init(host, priv);
-		if (err)
-			goto err_clk;
-		*/
 	}
 
 #ifdef CONFIG_ACPI
