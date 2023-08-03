@@ -700,7 +700,6 @@ static const struct sdhci_pltfm_data sdhci_dwcmshc_th1520_pdata = {
 	.ops = &sdhci_dwcmshc_th1520_ops,
 
 	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
-		  SDHCI_QUIRK_SINGLE_POWER_WRITE | // thead sdk
 		  SDHCI_QUIRK_BROKEN_DMA |
 		  SDHCI_QUIRK_BROKEN_ADMA,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
