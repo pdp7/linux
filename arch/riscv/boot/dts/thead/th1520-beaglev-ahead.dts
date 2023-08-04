@@ -69,7 +69,6 @@
 	non-removable;
 	mmc-hs400-1_8v;
 	thead,io-fixed-1v8;
-	is_emmc;
 	no-sdio;
 	no-sd;
 	thead,pull-up;
