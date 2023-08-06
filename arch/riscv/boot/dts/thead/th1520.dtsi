@@ -10,7 +10,7 @@
 	compatible = "thead,th1520";
 	#address-cells = <2>;
 	#size-cells = <2>;
-
+	
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -34,6 +34,7 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 				#interrupt-cells = <1>;
+                                phandle = <0x11>;
 			};
 		};
 
@@ -55,6 +56,7 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 				#interrupt-cells = <1>;
+				phandle = <0x12>;
 			};
 		};
 
@@ -76,6 +78,7 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 				#interrupt-cells = <1>;
+                                phandle = <0x13>;
 			};
 		};
 
@@ -97,6 +100,7 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 				#interrupt-cells = <1>;
+                                phandle = <0x14>;
 			};
 		};
 
@@ -137,7 +141,7 @@
 	sdhci_clk: sdhci-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <198000000>;
-		clock-output-names = "sdhci_clk";
+		clock-output-names = "sdhci_clk", "dummy_clock_sdhci";
 		#clock-cells = <0>;
 	};
 
@@ -150,15 +154,18 @@
 
 		plic: interrupt-controller@ffd8000000 {
 			compatible = "thead,th1520-plic", "thead,c900-plic";
-			reg = <0xff 0xd8000000 0x0 0x01000000>;
-			interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>,
-					      <&cpu1_intc 11>, <&cpu1_intc 9>,
-					      <&cpu2_intc 11>, <&cpu2_intc 9>,
-					      <&cpu3_intc 11>, <&cpu3_intc 9>;
+			reg = <0xff 0xd8000000 0x0 0x04000000>;
+			interrupts-extended = <
+					      &cpu0_intc 0xffffffff &cpu0_intc 9
+					      &cpu1_intc 0xffffffff &cpu1_intc 9
+					      &cpu2_intc 0xffffffff &cpu2_intc 9
+					      &cpu3_intc 0xffffffff &cpu3_intc 9
+					      >;
 			interrupt-controller;
 			#address-cells = <0>;
 			#interrupt-cells = <2>;
 			riscv,ndev = <240>;
+			riscv,max-priority = <7>;
 		};
 
 		clint: timer@ffdc000000 {
@@ -298,15 +305,66 @@
 			status = "disabled";
 		};
 
-		mmc0: mmc@ffe7080000 {
+                mmc0: sdhci@ffe7080000 {
 			compatible = "thead,th1520-dwcmshc";
-			reg = <0xff 0xe7080000 0x0 0x10000
-			       0xff 0xef014060 0x0 0x4>;
+			reg = <0xff 0xe7080000 0x0 0x10000>;
+			       /*0xff 0xef014060 0x0 0x4>;*/
 			interrupts = <62 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "sdhciirq";
 			clocks = <&sdhci_clk>;
 			clock-names = "core";
+			max-frequency = <198000000>;
+			non-removable;
+                        mmc-hs400-1_8v;
+                        io_fixed_1v8;
+                        is_emmc;
+                        no-sdio;
+                        no-sd;
+                        pull_up;
+                        bus-width = <0x08>;
+                        status = "okay";
 		};
+
+		sdhci0: sd@ffe7090000 {
+                        compatible = "thead,th1520-dwcmshc";
+			reg = <0xff 0xe7090000 0x0 0x10000>;
+			      /* 0xff 0xef014064 0x0 0x4>;*/
+			interrupt-parent = <&plic>;
+			interrupts = <64 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "sdhci0irq";
+			clocks = <&sdhci_clk>;
+			clock-names = "core";
+			status = "okay";
+			bus-width = <4>;
+			max-frequency = <198000000>;
+			pull_up;
+			wprtn_ignore;
+		};
+
+
+                sd@ffe70a0000 {
+                        compatible = "thead,th1520-dwcmshc";                
+                        reg = <0xff 0xe70a0000 0x00 0x10000>;
+				/*0xff 0xef014064 0x00 0x04>;*/
+                        interrupt-parent = <&plic>;
+                        interrupts = <71 IRQ_TYPE_LEVEL_HIGH>;
+                        interrupt-names = "sdhci1irq";
+                        clocks = <&sdhci_clk>;
+                        clock-names = "core";
+                        max-frequency = <0x5f5e100>;
+                        bus-width = <0x04>;
+                        pull_up;
+                        no-sd;
+                        no-mmc;
+                        non-removable;
+                        io_fixed_1v8;
+                        post-power-on-delay-ms = <0x32>;
+                        wprtn_ignore;
+                        cap-sd-highspeed;
+                        keep-power-in-suspend;
+                        wakeup-source;
+                        status = "okay";
+                };
 
 		timer0: timer@ffefc32000 {
 			compatible = "snps,dw-apb-timer";

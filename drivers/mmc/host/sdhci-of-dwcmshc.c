@@ -279,11 +279,11 @@ static void dwcmshc_set_uhs_signaling(struct sdhci_host *host,
 		u32 reg = sdhci_readl(host, AT_CTRL_R);
 		reg &= ~1;
 		sdhci_writel(host, reg, AT_CTRL_R);
-
 		th_priv->delay_line = DELAY_LINE_HS400;
 		th1520_sdhci_set_phy(host);
 	} else {
 		sdhci_writeb(host, 0, PHY_DLLDL_CNFG_R);
+		th1520_sdhci_set_phy(host);
 	}
 }
 
@@ -496,7 +496,6 @@ static void th1520_phy_1_8v_init(struct sdhci_host *host)
 	u32 val;
 
 	if (!priv) {
-		pr_err("th1520_phy_1_8v_init: ERROR priv null");
 		return;
 	}
 
@@ -541,7 +540,7 @@ static void th1520_phy_3_3v_init(struct sdhci_host *host)
 	struct th1520_priv *priv = dwc_priv->priv;
 	u32 val;
 
-	if (priv->pull_up_en == 0) {
+	if (priv != NULL && priv->pull_up_en == 0) {
 		sdhci_phy_3_3v_init_no_pull(host);
 		return;
 	}
@@ -552,7 +551,8 @@ static void th1520_phy_3_3v_init(struct sdhci_host *host)
 	//disable delay lane
 	sdhci_writeb(host, 1 << UPDATE_DC, PHY_SDCLKDL_CNFG_R);
 	//set delay lane
-	sdhci_writeb(host, priv->delay_line, PHY_SDCLKDL_DC_R);
+	//sdhci_writeb(host, priv->delay_line, PHY_SDCLKDL_DC_R);
+	sdhci_writeb(host, DELAY_LINE_DEFAULT, PHY_SDCLKDL_DC_R);
 	sdhci_writeb(host, 0xa, PHY_DLL_CNFG2_R);
 	//enable delay lane
 	val = sdhci_readb(host, PHY_SDCLKDL_CNFG_R);
@@ -605,16 +605,19 @@ static void th1520_sdhci_set_phy(struct sdhci_host *host)
 	u8 emmc_ctl;
 
 	/*Before power on,set PHY configs*/
-	emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
-	if (priv->is_emmc_card) {
+	if (priv != NULL && priv->is_emmc_card) {
+		emmc_ctl = sdhci_readw(host, EMMC_CTRL_R);
 		th1520_phy_1_8v_init(host);
 		emmc_ctl |= (1 << CARD_IS_EMMC);
 	} else {
+		emmc_ctl = sdhci_readw(host, PHY_DLL_CTRL_R);
 		th1520_phy_3_3v_init(host);
 		emmc_ctl &=~(1 << CARD_IS_EMMC);
+
 	}
 	sdhci_writeb(host, emmc_ctl, EMMC_CTRL_R);
 	sdhci_writeb(host, 0x25, PHY_DLL_CNFG1_R);
+
 }
 
 static void th1520_sdhci_reset(struct sdhci_host *host, u8 mask)
@@ -874,7 +877,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	}
 
 	if (pltfm_data == &sdhci_dwcmshc_th1520_pdata) {
-
 		th_priv = devm_kzalloc(&pdev->dev, sizeof(struct th1520_priv), GFP_KERNEL);
 		if (!th_priv) {
 			err = -ENOMEM;
