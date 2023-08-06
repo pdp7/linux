@@ -887,20 +887,20 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		th_priv->delay_line = DELAY_LINE_DEFAULT;
 
 		if (device_property_present(&pdev->dev, "non-removable"))
-		{	th_priv->is_emmc_card = 1;
-		}else{
+			th_priv->is_emmc_card = 1;
+		else
 			th_priv->is_emmc_card = 0;
-		}
+
 		if (device_property_present(&pdev->dev, "thead,pull-up"))
-		{	th_priv->pull_up_en = 1;
-		} else {
+			th_priv->pull_up_en = 1;
+		else
 			th_priv->pull_up_en = 0;
-		}
+
 		if (device_property_present(&pdev->dev, "thead,io-fixed-1v8"))
-		{	th_priv->io_fixed_1v8 = true;
-		}else {
+			th_priv->io_fixed_1v8 = true;
+		else
 			th_priv->io_fixed_1v8 = false;
-		}
+
 		/* start_signal_voltage_switch will try 3V3 first, then io fixed 1V8,
 		* use SDHCI_SIGNALING_180 ranther than SDHCI_SIGNALING_330 to avoid set to 3V3
 		* in sdhci_start_signal_voltage_switch.
