@@ -703,7 +703,6 @@ static const struct sdhci_pltfm_data sdhci_dwcmshc_th1520_pdata = {
 	.ops = &sdhci_dwcmshc_th1520_ops,
 
 	.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
-		  SDHCI_QUIRK_SINGLE_POWER_WRITE | // thead sdk
 		  SDHCI_QUIRK_BROKEN_DMA |
 		  SDHCI_QUIRK_BROKEN_ADMA,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
@@ -916,19 +915,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		 * communicate with the mmc device.
 		 */
 		sdhci_enable_v4_mode(host);
-
-		/*
-		 * Set flag so the SDHCI host core will disable DMA
-		 * and use PIO mode.
-		 */
-		host->flags &= ~SDHCI_USE_SDMA;
-		host->flags &= ~SDHCI_AUTO_CMD23;
-
-		/*
-		err = dwcmshc_th1520_init(host, priv);
-		if (err)
-			goto err_clk;
-		*/
 	}
 
 #ifdef CONFIG_ACPI
