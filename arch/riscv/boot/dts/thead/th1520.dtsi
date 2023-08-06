@@ -316,11 +316,11 @@
 			max-frequency = <198000000>;
 			non-removable;
                         mmc-hs400-1_8v;
-                        io_fixed_1v8;
+                        thead,io-fixed-1v8;
                         is_emmc;
                         no-sdio;
                         no-sd;
-                        pull_up;
+                        thead,pull-up;
                         bus-width = <0x08>;
                         status = "okay";
 		};
@@ -337,7 +337,7 @@
 			status = "okay";
 			bus-width = <4>;
 			max-frequency = <198000000>;
-			pull_up;
+			thead,pull-up;
 			wprtn_ignore;
 		};
 
@@ -353,11 +353,11 @@
                         clock-names = "core";
                         max-frequency = <0x5f5e100>;
                         bus-width = <0x04>;
-                        pull_up;
+                        thead,pull-up;
                         no-sd;
                         no-mmc;
                         non-removable;
-                        io_fixed_1v8;
+                        thead,io-fixed-1v8;
                         post-power-on-delay-ms = <0x32>;
                         wprtn_ignore;
                         cap-sd-highspeed;
