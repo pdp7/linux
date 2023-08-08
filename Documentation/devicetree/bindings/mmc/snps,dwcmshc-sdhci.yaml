@@ -69,7 +69,6 @@ properties:
     description: True if pull-up, false if pull-down
     type: boolean
 
-
 required:
   - compatible
   - reg
