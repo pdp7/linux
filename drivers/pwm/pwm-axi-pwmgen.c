@@ -165,8 +165,8 @@ static int axi_pwmgen_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
-	.disable = axi_pwmgen_disable,
-	.enable = axi_pwmgen_enable,
+	//.disable = axi_pwmgen_disable,
+	//.enable = axi_pwmgen_enable,
 	.capture = axi_pwmgen_capture,
 	.get_state = axi_pwmgen_get_state,
 	.owner = THIS_MODULE,
