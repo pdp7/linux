@@ -3669,7 +3669,7 @@ static int vip_register_subdev_notif(struct vip_port *port,
 
 	v4l2_async_nf_init(notifier);
 
-	asd = v4l2_async_nf_add_fwnode_remote(notifier, subdev, sizeof(struct v4l2_async_subdev));
+	asd = v4l2_async_nf_add_fwnode(notifier, subdev, struct v4l2_async_subdev);
 	if (IS_ERR(asd)) {
 		vip_dbg(1, port, "Error adding asd\n");
 		fwnode_handle_put(subdev);
