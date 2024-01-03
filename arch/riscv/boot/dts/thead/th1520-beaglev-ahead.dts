@@ -48,6 +48,14 @@
 	status = "okay";
 };
 
+&aonsys_clk {
+	clock-frequency = <73728000>;
+};
+
+&apb_clk {
+	clock-frequency = <62500000>;
+};
+
 &emmc {
 	bus-width = <8>;
 	max-frequency = <198000000>;
