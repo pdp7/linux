@@ -229,6 +229,7 @@ static int thead_dwmac_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	u32 delay_ps;
 	int ret;
+	void __iomem *apb;
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
@@ -248,6 +249,10 @@ static int thead_dwmac_probe(struct platform_device *pdev)
 		dwmac->rx_delay = delay_ps;
 	if (!of_property_read_u32(np, "tx-internal-delay-ps", &delay_ps))
 		dwmac->tx_delay = delay_ps;
+
+	pr_err("DEBUG %s(): call devm_platform_ioremap_resource(pdev, 1)", __func__);
+	apb = devm_platform_ioremap_resource(pdev, 1);
+	pr_err("DEBUG %s(): apb = %px", __func__, apb);
 
 	dwmac->apb_regmap = syscon_regmap_lookup_by_phandle(np, "thead,gmacapb");
 	if (IS_ERR(dwmac->apb_regmap))
