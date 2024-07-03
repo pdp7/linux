@@ -752,6 +752,7 @@ int stmmac_get_platform_resources(struct platform_device *pdev,
 	}
 
 	stmmac_res->addr = devm_platform_ioremap_resource(pdev, 0);
+	pr_err("DEBUG %s(): stmmac_res->addr = devm_platform_ioremap_resource(pdev, 0) = %px", __func__, stmmac_res->addr);
 
 	return PTR_ERR_OR_ZERO(stmmac_res->addr);
 }
