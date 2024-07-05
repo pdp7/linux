@@ -25,6 +25,7 @@
 		serial3 = &uart3;
 		serial4 = &uart4;
 		serial5 = &uart5;
+		spi0 = &spi0;
 	};
 
 	chosen {
@@ -48,6 +49,10 @@
 
 &apb_clk {
 	clock-frequency = <62500000>;
+};
+
+&spi_clk {
+	clock-frequency = <396000000>;
 };
 
 &dmac0 {
@@ -97,5 +102,9 @@
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pins>;
+	status = "okay";
+};
+
+&spi0 {
 	status = "okay";
 };
